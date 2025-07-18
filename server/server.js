@@ -673,8 +673,8 @@ app.post('/api/clients', authenticateToken, authorizeRole('admin'), async (req, 
 // Session Schema
 const sessionSchema = new mongoose.Schema({
   title: { type: String, required: true, trim: true },
-  program: { type: mongoose.Schema.Types.ObjectId, ref: 'Program', required: true },
-  instructor: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  program: { type: mongoose.Schema.Types.ObjectId, ref: 'Program', required: false },
+  instructor: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: false },
   students: [{
     student: { type: mongoose.Schema.Types.ObjectId, ref: 'Student', required: true },
     enrollmentDate: { type: Date, default: Date.now },

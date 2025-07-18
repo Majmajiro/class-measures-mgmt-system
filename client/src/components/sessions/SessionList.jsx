@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { sessionsAPI, programsAPI, studentsAPI } from '../../services/api';
+import { sessionsAPI } from '../../services/api';
 import SessionForm from './SessionForm';
-import AttendanceTracker from './AttendanceTracker';
 import { toast } from 'react-hot-toast';
 import { 
   Calendar, 
@@ -12,32 +11,20 @@ import {
   Plus,
   Edit,
   Trash2,
-  CheckCircle,
-  XCircle,
-  UserCheck,
-  BookOpen,
-  Filter,
+  RefreshCw,
   Search,
-  RefreshCw
+  Filter
 } from 'lucide-react';
 
 const SessionList = () => {
   const [sessions, setSessions] = useState([]);
-  const [programs, setPrograms] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [showAttendance, setShowAttendance] = useState(false);
   const [editingSession, setEditingSession] = useState(null);
-  const [selectedSession, setSelectedSession] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [filters, setFilters] = useState({
-    program: '',
-    status: '',
-    date: ''
-  });
+  const [filterType, setFilterType] = useState('');
   const { user } = useAuth();
 
-  // Class Measures Brand Colors
   const colors = {
     primary: '#c55c5c',
     secondary: '#f4c842',
@@ -47,58 +34,30 @@ const SessionList = () => {
     lightGray: '#f3f4f6'
   };
 
-  // Session status colors
-  const statusColors = {
-    'scheduled': { bg: '#dbeafe', border: '#3b82f6', text: '#1e40af' },
-    'ongoing': { bg: '#ecfdf5', border: '#10b981', text: '#047857' },
-    'completed': { bg: '#f3e8ff', border: '#8b5cf6', text: '#6d28d9' },
-    'cancelled': { bg: '#fee2e2', border: '#ef4444', text: '#dc2626' }
-  };
-
-  // Location icons
-  const locationIcons = {
-    'Main Classroom': '🏫',
-    'Computer Lab': '💻',
-    'Library': '📚',
-    'Online': '🌐',
-    'Chess Room': '♟️',
-    'Robotics Lab': '🤖'
-  };
-
   useEffect(() => {
     loadSessions();
-    loadPrograms();
-  }, [filters, searchQuery]);
+  }, [searchQuery, filterType]);
 
   const loadSessions = async () => {
+    console.log("🔄 SessionList: Starting to load sessions...");
+    console.log("🔑 Token exists:", !!localStorage.getItem("token"));
     try {
+      setLoading(true);
       const params = {};
-      if (searchQuery) params.q = searchQuery;
-      Object.entries(filters).forEach(([key, value]) => {
-        if (value) params[key] = value;
-      });
+      if (searchQuery) params.search = searchQuery;
+      if (filterType) params.type = filterType;
       
+      console.log("📡 Calling sessionsAPI.getAll with params:", params);
       const response = await sessionsAPI.getAll(params);
-      console.log('Sessions response:', response);
-      
-      const sessionsData = response.sessions || [];
-      setSessions(sessionsData);
+      console.log("📥 Got response from API:", response);
+      console.log("🔄 Setting sessions to:", response.sessions || []);
+      setSessions(response.sessions || []);
     } catch (error) {
       console.error('Error loading sessions:', error);
+      toast.error('Failed to load sessions');
       setSessions([]);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const loadPrograms = async () => {
-    try {
-      const response = await programsAPI.getAll();
-      const programsData = response.programs || response.data?.programs || [];
-      setPrograms(programsData);
-    } catch (error) {
-      console.error('Error loading programs:', error);
-      setPrograms([]);
     }
   };
 
@@ -109,6 +68,7 @@ const SessionList = () => {
         toast.success('Session deleted successfully');
         loadSessions();
       } catch (error) {
+        console.error('Delete error:', error);
         toast.error('Failed to delete session');
       }
     }
@@ -130,35 +90,70 @@ const SessionList = () => {
   };
 
   const handleSessionSaved = () => {
-    loadSessions();
+    console.log('💾 Session saved, reloading list...');
+    setTimeout(() => {
+      loadSessions();
+    }, 500);
     setShowForm(false);
     setEditingSession(null);
   };
+  const createTestSession = async () => {
+    try {
+      const testSessionData = {
+        title: `Demo Session ${Date.now()}`,
+        schedule: {
+          date: new Date().toISOString().split('T')[0],
+          startTime: '14:00',
+          endTime: '15:00',
+          duration: 60,
+          dayOfWeek: 'Saturday'
+        },
+        location: 'Main Classroom',
+        sessionType: 'Regular Class',
+        notes: 'This is a demo session created for testing'
+      };
 
-  const handleAttendance = (session) => {
-    setSelectedSession(session);
-    setShowAttendance(true);
+      const response = await sessionsAPI.create(testSessionData);
+      
+      if (response.session || response.message) {
+        toast.success('🧪 Demo session created successfully!');
+        loadSessions();
+      } else {
+        toast.error('Failed to create demo session');
+      }
+    } catch (error) {
+      console.error('Demo session error:', error);
+      toast.error('Failed to create demo session');
+    }
   };
 
-  const handleAttendanceClose = () => {
-    setShowAttendance(false);
-    setSelectedSession(null);
+  const getSessionTypeColor = (type) => {
+    switch (type) {
+      case 'Regular Class': return '#10b981';
+      case 'Assessment': return '#f59e0b';
+      case 'Workshop': return '#8b5cf6';
+      case 'Practice': return '#06b6d4';
+      case 'Exam Prep': return '#ef4444';
+      case 'Review': return '#84cc16';
+      default: return colors.gray;
+    }
   };
 
   const formatDate = (dateString) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', {
-      weekday: 'long',
+      weekday: 'short',
       year: 'numeric',
-      month: 'long',
+      month: 'short',
       day: 'numeric'
     });
   };
 
   const formatTime = (timeString) => {
+    if (!timeString) return '';
     const [hours, minutes] = timeString.split(':');
     const date = new Date();
-    date.setHours(parseInt(hours), parseInt(minutes));
+    date.setHours(hours, minutes);
     return date.toLocaleTimeString('en-US', {
       hour: 'numeric',
       minute: '2-digit',
@@ -166,29 +161,15 @@ const SessionList = () => {
     });
   };
 
-  const isToday = (dateString) => {
-    const today = new Date();
-    const sessionDate = new Date(dateString);
-    return today.toDateString() === sessionDate.toDateString();
-  };
-
-  const getStatusDisplay = (status) => {
-    const statusStyle = statusColors[status] || statusColors.scheduled;
-    return (
-      <span style={{
-        padding: '0.25rem 0.75rem',
-        backgroundColor: statusStyle.bg,
-        color: statusStyle.text,
-        border: `1px solid ${statusStyle.border}30`,
-        borderRadius: '1rem',
-        fontSize: '0.75rem',
-        fontWeight: '600',
-        textTransform: 'capitalize'
-      }}>
-        {status}
-      </span>
-    );
-  };
+  const filteredSessions = sessions.filter(session => {
+    const matchesSearch = !searchQuery || 
+      session.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      session.location?.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    const matchesType = !filterType || session.sessionType === filterType;
+    
+    return matchesSearch && matchesType;
+  });
 
   if (loading) {
     return (
@@ -230,13 +211,16 @@ const SessionList = () => {
               📅 Session Management
             </h1>
             <p style={{ color: colors.gray, fontSize: '1rem' }}>
-              Schedule classes and track attendance for all your programs
+              Schedule, manage, and track your educational sessions
+            </p>
+            <p style={{ color: colors.primary, fontSize: '0.875rem', fontWeight: '600' }}>
+              Total Sessions: {sessions.length} | Displayed: {filteredSessions.length}
             </p>
           </div>
           
           <div style={{ display: 'flex', gap: '1rem' }}>
             <button
-              onClick={() => loadSessions()}
+              onClick={loadSessions}
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -256,98 +240,51 @@ const SessionList = () => {
             </button>
 
             {(user.role === 'admin' || user.role === 'tutor') && (
-              <button
-                onClick={handleAddNew}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.5rem',
-                  padding: '0.875rem 1.5rem',
-                  background: `linear-gradient(135deg, ${colors.primary}, ${colors.dark})`,
-                  color: colors.white,
-                  border: 'none',
-                  borderRadius: '0.75rem',
-                  cursor: 'pointer',
-                  fontSize: '0.875rem',
-                  fontWeight: '600',
-                  transition: 'all 0.2s',
-                  boxShadow: `0 4px 12px ${colors.primary}30`
-                }}
-                onMouseOver={(e) => e.target.style.transform = 'translateY(-2px)'}
-                onMouseOut={(e) => e.target.style.transform = 'translateY(0)'}
-              >
-                <Plus size={18} />
-                Schedule Session
-              </button>
+              <>
+                <button
+                  onClick={createTestSession}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    padding: '0.75rem 1rem',
+                    backgroundColor: colors.secondary,
+                    color: colors.dark,
+                    border: 'none',
+                    borderRadius: '0.5rem',
+                    cursor: 'pointer',
+                    fontSize: '0.875rem',
+                    fontWeight: '500'
+                  }}
+                >
+                  🧪 Demo Session
+                </button>
+                
+                <button
+                  onClick={handleAddNew}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    padding: '0.875rem 1.5rem',
+                    background: `linear-gradient(135deg, ${colors.primary}, ${colors.dark})`,
+                    color: colors.white,
+                    border: 'none',
+                    borderRadius: '0.75rem',
+                    cursor: 'pointer',
+                    fontSize: '0.875rem',
+                    fontWeight: '600',
+                    transition: 'all 0.2s',
+                    boxShadow: `0 4px 12px ${colors.primary}30`
+                  }}
+                  onMouseOver={(e) => e.target.style.transform = 'translateY(-2px)'}
+                  onMouseOut={(e) => e.target.style.transform = 'translateY(0)'}
+                >
+                  <Plus size={18} />
+                  New Session
+                </button>
+              </>
             )}
-          </div>
-        </div>
-
-        {/* Quick Stats */}
-        <div style={{ 
-          display: 'grid', 
-          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
-          gap: '1.5rem',
-          marginBottom: '2rem'
-        }}>
-          <div style={{
-            backgroundColor: colors.white,
-            padding: '1.5rem',
-            borderRadius: '1rem',
-            boxShadow: '0 4px 6px rgba(0,0,0,0.05)',
-            border: `2px solid ${colors.primary}20`
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-              <Calendar size={24} style={{ color: colors.primary }} />
-              <div>
-                <h3 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: colors.dark }}>
-                  {sessions.length}
-                </h3>
-                <p style={{ fontSize: '0.875rem', color: colors.gray }}>
-                  Total Sessions
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div style={{
-            backgroundColor: colors.white,
-            padding: '1.5rem',
-            borderRadius: '1rem',
-            boxShadow: '0 4px 6px rgba(0,0,0,0.05)',
-            border: `2px solid ${colors.secondary}20`
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-              <Clock size={24} style={{ color: colors.secondary }} />
-              <div>
-                <h3 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: colors.dark }}>
-                  {sessions.filter(s => isToday(s.schedule.date)).length}
-                </h3>
-                <p style={{ fontSize: '0.875rem', color: colors.gray }}>
-                  Today's Sessions
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div style={{
-            backgroundColor: colors.white,
-            padding: '1.5rem',
-            borderRadius: '1rem',
-            boxShadow: '0 4px 6px rgba(0,0,0,0.05)',
-            border: `2px solid #10b98120`
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-              <CheckCircle size={24} style={{ color: '#10b981' }} />
-              <div>
-                <h3 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: colors.dark }}>
-                  {sessions.filter(s => s.status === 'completed').length}
-                </h3>
-                <p style={{ fontSize: '0.875rem', color: colors.gray }}>
-                  Completed
-                </p>
-              </div>
-            </div>
           </div>
         </div>
 
@@ -359,14 +296,7 @@ const SessionList = () => {
           marginBottom: '2rem',
           boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
-            <Search size={18} style={{ color: colors.gray }} />
-            <h3 style={{ fontSize: '1rem', fontWeight: '600', color: colors.dark }}>
-              Search & Filter Sessions
-            </h3>
-          </div>
-          
-          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr auto', gap: '1rem', alignItems: 'end' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr auto', gap: '1rem', alignItems: 'end' }}>
             <div>
               <input
                 type="text"
@@ -379,14 +309,14 @@ const SessionList = () => {
                   borderRadius: '0.5rem',
                   fontSize: '0.875rem'
                 }}
-                placeholder="Search sessions by title..."
+                placeholder="Search sessions by title or location..."
               />
             </div>
 
             <div>
               <select
-                value={filters.program}
-                onChange={(e) => setFilters(prev => ({ ...prev, program: e.target.value }))}
+                value={filterType}
+                onChange={(e) => setFilterType(e.target.value)}
                 style={{
                   width: '100%',
                   padding: '0.75rem',
@@ -396,56 +326,21 @@ const SessionList = () => {
                   backgroundColor: colors.white
                 }}
               >
-                <option value="">All Programs</option>
-                {programs.map(program => (
-                  <option key={program._id} value={program._id}>
-                    {program.name}
-                  </option>
-                ))}
+                <option value="">All Types</option>
+                <option value="Regular Class">Regular Class</option>
+                <option value="Assessment">Assessment</option>
+                <option value="Workshop">Workshop</option>
+                <option value="Practice">Practice</option>
+                <option value="Exam Prep">Exam Prep</option>
+                <option value="Review">Review</option>
               </select>
-            </div>
-
-            <div>
-              <select
-                value={filters.status}
-                onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
-                style={{
-                  width: '100%',
-                  padding: '0.75rem',
-                  border: `2px solid ${colors.lightGray}`,
-                  borderRadius: '0.5rem',
-                  fontSize: '0.875rem',
-                  backgroundColor: colors.white
-                }}
-              >
-                <option value="">All Status</option>
-                <option value="scheduled">Scheduled</option>
-                <option value="ongoing">Ongoing</option>
-                <option value="completed">Completed</option>
-                <option value="cancelled">Cancelled</option>
-              </select>
-            </div>
-
-            <div>
-              <input
-                type="date"
-                value={filters.date}
-                onChange={(e) => setFilters(prev => ({ ...prev, date: e.target.value }))}
-                style={{
-                  padding: '0.75rem',
-                  border: `2px solid ${colors.lightGray}`,
-                  borderRadius: '0.5rem',
-                  fontSize: '0.875rem',
-                  backgroundColor: colors.white
-                }}
-              />
             </div>
 
             <div>
               <button
                 onClick={() => {
-                  setFilters({ program: '', status: '', date: '' });
                   setSearchQuery('');
+                  setFilterType('');
                 }}
                 style={{
                   padding: '0.75rem 1rem',
@@ -464,8 +359,8 @@ const SessionList = () => {
           </div>
         </div>
 
-        {/* Sessions List */}
-        {sessions.length === 0 ? (
+        {/* Sessions Grid */}
+        {filteredSessions.length === 0 ? (
           <div style={{
             backgroundColor: colors.white,
             padding: '4rem 2rem',
@@ -475,28 +370,47 @@ const SessionList = () => {
           }}>
             <Calendar size={64} style={{ color: colors.gray, margin: '0 auto 1rem' }} />
             <h3 style={{ fontSize: '1.5rem', fontWeight: '600', color: colors.dark, marginBottom: '0.5rem' }}>
-              No sessions found
+              {sessions.length === 0 ? 'No sessions scheduled' : 'No sessions match your criteria'}
             </h3>
             <p style={{ color: colors.gray, fontSize: '1rem', marginBottom: '2rem' }}>
-              Start by scheduling your first class session
+              {sessions.length === 0 
+                ? 'Start by creating your first session'
+                : 'Try adjusting your search terms or filters'
+              }
             </p>
-            {(user.role === 'admin' || user.role === 'tutor') && (
-              <button
-                onClick={handleAddNew}
-                style={{
-                  padding: '0.75rem 1.5rem',
-                  backgroundColor: colors.primary,
-                  color: colors.white,
-                  border: 'none',
-                  borderRadius: '0.5rem',
-                  cursor: 'pointer',
-                  fontSize: '0.875rem',
-                  fontWeight: '500'
-                }}
-              >
-                <Plus size={16} style={{ marginRight: '0.5rem' }} />
-                Schedule First Session
-              </button>
+            {(user.role === 'admin' || user.role === 'tutor') && sessions.length === 0 && (
+              <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+                <button
+                  onClick={createTestSession}
+                  style={{
+                    padding: '0.75rem 1.5rem',
+                    backgroundColor: colors.secondary,
+                    color: colors.dark,
+                    border: 'none',
+                    borderRadius: '0.5rem',
+                    cursor: 'pointer',
+                    fontSize: '0.875rem',
+                    fontWeight: '500'
+                  }}
+                >
+                  🧪 Create Demo Session
+                </button>
+                <button
+                  onClick={handleAddNew}
+                  style={{
+                    padding: '0.75rem 1.5rem',
+                    backgroundColor: colors.primary,
+                    color: colors.white,
+                    border: 'none',
+                    borderRadius: '0.5rem',
+                    cursor: 'pointer',
+                    fontSize: '0.875rem',
+                    fontWeight: '500'
+                  }}
+                >
+                  Create Your First Session
+                </button>
+              </div>
             )}
           </div>
         ) : (
@@ -505,7 +419,7 @@ const SessionList = () => {
             gridTemplateColumns: 'repeat(auto-fill, minmax(400px, 1fr))', 
             gap: '1.5rem' 
           }}>
-            {sessions.map((session) => (
+            {filteredSessions.map((session) => (
               <div 
                 key={session._id} 
                 style={{
@@ -514,43 +428,30 @@ const SessionList = () => {
                   padding: '1.5rem',
                   boxShadow: '0 4px 6px rgba(0,0,0,0.05)',
                   border: `2px solid ${colors.lightGray}`,
-                  transition: 'all 0.2s',
-                  position: 'relative'
-                }}
-                onMouseOver={(e) => {
-                  e.currentTarget.style.transform = 'translateY(-2px)';
-                  e.currentTarget.style.boxShadow = '0 8px 25px rgba(0,0,0,0.15)';
-                }}
-                onMouseOut={(e) => {
-                  e.currentTarget.style.transform = 'translateY(0)';
-                  e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.05)';
+                  transition: 'all 0.2s'
                 }}
               >
                 {/* Session Header */}
-                <div style={{ marginBottom: '1rem' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '1rem' }}>
+                  <div style={{ flex: 1 }}>
                     <h3 style={{ 
                       fontSize: '1.25rem', 
                       fontWeight: '700', 
                       color: colors.dark,
-                      marginBottom: '0.25rem'
+                      marginBottom: '0.5rem'
                     }}>
-                      {session.title}
+                      {session.title || 'Untitled Session'}
                     </h3>
-                    {getStatusDisplay(session.status)}
-                  </div>
-                  
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                    <BookOpen size={16} style={{ color: colors.primary }} />
-                    <span style={{ fontSize: '0.875rem', color: colors.gray, fontWeight: '500' }}>
-                      {session.program?.name || 'Unknown Program'}
-                    </span>
-                  </div>
-                  
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <Users size={16} style={{ color: colors.secondary }} />
-                    <span style={{ fontSize: '0.875rem', color: colors.gray }}>
-                      {session.instructor?.name || 'Unknown Instructor'}
+                    <span style={{
+                      padding: '0.25rem 0.75rem',
+                      backgroundColor: `${getSessionTypeColor(session.sessionType)}20`,
+                      color: getSessionTypeColor(session.sessionType),
+                      borderRadius: '1rem',
+                      fontSize: '0.75rem',
+                      fontWeight: '600',
+                      textTransform: 'capitalize'
+                    }}>
+                      {session.sessionType || 'Regular Class'}
                     </span>
                   </div>
                 </div>
@@ -562,145 +463,102 @@ const SessionList = () => {
                   borderRadius: '0.5rem',
                   marginBottom: '1rem'
                 }}>
+                  {/* Date & Time */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                    <Calendar size={16} style={{ color: colors.primary }} />
-                    <span style={{ fontSize: '0.875rem', fontWeight: '600', color: colors.dark }}>
-                      {formatDate(session.schedule.date)}
+                    <Calendar size={16} style={{ color: colors.gray }} />
+                    <span style={{ fontSize: '0.875rem', color: colors.dark }}>
+                      {session.schedule?.date ? formatDate(session.schedule.date) : 'No date set'}
                     </span>
-                    {isToday(session.schedule.date) && (
-                      <span style={{
-                        padding: '0.125rem 0.5rem',
-                        backgroundColor: colors.secondary,
-                        color: colors.dark,
-                        borderRadius: '1rem',
-                        fontSize: '0.7rem',
-                        fontWeight: '600'
-                      }}>
-                        TODAY
+                  </div>
+                  
+                  {/* Time */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                    <Clock size={16} style={{ color: colors.gray }} />
+                    <span style={{ fontSize: '0.875rem', color: colors.dark }}>
+                      {session.schedule?.startTime ? 
+                        `${formatTime(session.schedule.startTime)} - ${formatTime(session.schedule.endTime)}` : 
+                        'No time set'
+                      }
+                    </span>
+                  </div>
+                  
+                  {/* Location */}
+                  {session.location && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                      <MapPin size={16} style={{ color: colors.gray }} />
+                      <span style={{ fontSize: '0.875rem', color: colors.dark }}>
+                        {session.location}
                       </span>
-                    )}
-                  </div>
-                  
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                    <Clock size={16} style={{ color: colors.secondary }} />
-                    <span style={{ fontSize: '0.875rem', color: colors.gray }}>
-                      {formatTime(session.schedule.startTime)} - {formatTime(session.schedule.endTime)}
-                    </span>
-                  </div>
-                  
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <MapPin size={16} style={{ color: '#10b981' }} />
-                    <span style={{ fontSize: '0.875rem', color: colors.gray }}>
-                      {locationIcons[session.location] || '📍'} {session.location}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Students Info */}
-                <div style={{ marginBottom: '1rem' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                    <Users size={16} style={{ color: colors.gray }} />
-                    <span style={{ fontSize: '0.875rem', fontWeight: '600', color: colors.dark }}>
-                      Students ({session.students?.length || 0})
-                    </span>
-                  </div>
-                  
-                  {session.students?.length > 0 && (
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.25rem' }}>
-                      {session.students.slice(0, 3).map((enrollment, index) => (
-                        <span key={index} style={{
-                          padding: '0.125rem 0.5rem',
-                          backgroundColor: `${colors.primary}10`,
-                          color: colors.primary,
-                          borderRadius: '1rem',
-                          fontSize: '0.7rem',
-                          fontWeight: '500'
-                        }}>
-                          {enrollment.student?.name || 'Unknown Student'}
-                        </span>
-                      ))}
-                      {session.students.length > 3 && (
-                        <span style={{
-                          padding: '0.125rem 0.5rem',
-                          backgroundColor: `${colors.gray}10`,
-                          color: colors.gray,
-                          borderRadius: '1rem',
-                          fontSize: '0.7rem',
-                          fontWeight: '500'
-                        }}>
-                          +{session.students.length - 3} more
-                        </span>
-                      )}
                     </div>
                   )}
+                  
+                  {/* Students */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <Users size={16} style={{ color: colors.gray }} />
+                    <span style={{ fontSize: '0.875rem', color: colors.dark }}>
+                      {session.students?.length || 0} students enrolled
+                    </span>
+                  </div>
                 </div>
 
-                {/* Action Buttons */}
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
-                  <button
-                    onClick={() => handleAttendance(session)}
-                    style={{
-                      flex: 1,
-                      padding: '0.5rem',
-                      backgroundColor: `${colors.secondary}15`,
-                      color: colors.dark,
-                      border: `1px solid ${colors.secondary}30`,
-                      borderRadius: '0.375rem',
-                      cursor: 'pointer',
-                      fontSize: '0.8rem',
-                      fontWeight: '500',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '0.25rem'
-                    }}
-                  >
-                    <UserCheck size={14} />
-                    Attendance
-                  </button>
-                  
-                  {(user.role === 'admin' || user.role === 'tutor') && (
-                    <>
-                      <button
-                        onClick={() => handleEdit(session)}
-                        style={{
-                          padding: '0.5rem',
-                          backgroundColor: `${colors.primary}10`,
-                          color: colors.primary,
-                          border: `1px solid ${colors.primary}30`,
-                          borderRadius: '0.375rem',
-                          cursor: 'pointer',
-                          fontSize: '0.8rem',
-                          fontWeight: '500',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center'
-                        }}
-                      >
-                        <Edit size={14} />
-                      </button>
-                      
-                      <button
-                        onClick={() => handleDelete(session._id)}
-                        style={{
-                          padding: '0.5rem',
-                          backgroundColor: '#fee2e2',
-                          color: '#dc2626',
-                          border: '1px solid #fecaca',
-                          borderRadius: '0.375rem',
-                          cursor: 'pointer',
-                          fontSize: '0.8rem',
-                          fontWeight: '500',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center'
-                        }}
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </>
-                  )}
-                </div>
+                {/* Notes */}
+                {session.notes && (
+                  <div style={{ marginBottom: '1rem' }}>
+                    <p style={{ 
+                      fontSize: '0.875rem', 
+                      color: colors.gray,
+                      fontStyle: 'italic',
+                      lineHeight: '1.4'
+                    }}>
+                      "{session.notes}"
+                    </p>
+                  </div>
+                )}
+
+                {/* Actions */}
+                {(user.role === 'admin' || user.role === 'tutor') && (
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <button
+                      onClick={() => handleEdit(session)}
+                      style={{
+                        flex: 1,
+                        padding: '0.5rem',
+                        backgroundColor: `${colors.primary}10`,
+                        color: colors.primary,
+                        border: `1px solid ${colors.primary}30`,
+                        borderRadius: '0.375rem',
+                        cursor: 'pointer',
+                        fontSize: '0.8rem',
+                        fontWeight: '500',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '0.25rem'
+                      }}
+                    >
+                      <Edit size={14} />
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => handleDelete(session._id)}
+                      style={{
+                        padding: '0.5rem',
+                        backgroundColor: '#fee2e2',
+                        color: '#dc2626',
+                        border: '1px solid #fecaca',
+                        borderRadius: '0.375rem',
+                        cursor: 'pointer',
+                        fontSize: '0.8rem',
+                        fontWeight: '500',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -712,14 +570,6 @@ const SessionList = () => {
             session={editingSession}
             onClose={handleFormClose}
             onSessionSaved={handleSessionSaved}
-          />
-        )}
-
-        {/* Attendance Tracker Modal */}
-        {showAttendance && selectedSession && (
-          <AttendanceTracker
-            session={selectedSession}
-            onClose={handleAttendanceClose}
           />
         )}
       </div>

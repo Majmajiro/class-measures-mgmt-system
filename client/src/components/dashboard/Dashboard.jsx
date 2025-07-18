@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import StudentList from '../students/StudentList';
+import SessionList from "../sessions/SessionList";
 import ResourceList from "../resources/ResourceList";
 import ProgramList from '../programs/ProgramList';
 
@@ -32,7 +33,7 @@ const Dashboard = () => {
       case 'resources':
         return <ResourceList />;
       case 'sessions':
-        return <div style={{ padding: '2rem' }}>Sessions - Coming Soon</div>;
+        return <SessionList />;
       default:
         return (
           <div style={{ padding: '2rem', minHeight: '100vh', backgroundColor: colors.light }}>
