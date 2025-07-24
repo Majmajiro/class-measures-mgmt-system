@@ -131,12 +131,9 @@ process.on('SIGTERM', () => {
   });
 });
 
-process.on('SIGINT', () => {
-  console.log('\n📡 SIGINT received. Shutting down gracefully...');
-  mongoose.connection.close(() => {
-    console.log('📦 Database connection closed');
-    process.exit(0);
-  });
+process.on('SIGINT', async () => {
+  await mongoose.connection.close();  // ✅ No callback needed
+  process.exit(0);
 });
 
 app.listen(PORT, () => {
