@@ -10,7 +10,7 @@ import { authenticateToken, authorizeRole } from '../middleware/auth.js';
 
 const router = express.Router();
 
-router.use(authenticateToken);
+// router.use(authenticateToken);
 
 router.post('/', authorizeRole('admin'), createProgram);
 router.get('/', getPrograms);

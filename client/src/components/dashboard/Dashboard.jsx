@@ -4,10 +4,14 @@ import StudentList from '../students/StudentList';
 import SessionList from "../sessions/SessionList";
 import ResourceList from "../resources/ResourceList";
 import ProgramList from '../programs/ProgramList';
+import BusinessAnalytics from '../analytics/BusinessAnalytics';
+import Navbar from '../layout/Navbar';
+import ActionCard from './ActionCard';
 
 const Dashboard = () => {
   const { user, logout } = useAuth();
-  const [activeView, setActiveView] = useState('dashboard');
+  const [activeView, setActiveView] = 
+useState('dashboard');
 
   // Class Measures Brand Colors
   const colors = {
@@ -34,6 +38,8 @@ const Dashboard = () => {
         return <ResourceList />;
       case 'sessions':
         return <SessionList />;
+       case 'analytics':
+        return <BusinessAnalytics />;
       default:
         return (
           <div style={{ padding: '2rem', minHeight: '100vh', backgroundColor: colors.light }}>
@@ -250,6 +256,46 @@ const Dashboard = () => {
                   </h3>
                   <p style={{ color: colors.gray, fontSize: '0.875rem', lineHeight: '1.5' }}>
                     Schedule sessions and track student attendance
+                  </p>
+                </button>
+
+                 <button
+                  onClick={() => setActiveView('analytics')}
+                  style={{ 
+                    padding: '2rem', 
+                    background: `linear-gradient(135deg, #f59e0b15, #f59e0b25)`,
+                    border: `2px solid #f59e0b30`,
+                    borderRadius: '1rem',
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                    transition: 'all 0.3s ease'
+                  }}
+                  onMouseOver={(e) => {
+                    e.target.style.transform = 'translateY(-4px)';
+                    e.target.style.boxShadow = `0 8px 25px #f59e0b30`;
+                  }}
+                  onMouseOut={(e) => {
+                    e.target.style.transform = 'translateY(0)';
+                    e.target.style.boxShadow = 'none';
+                  }}
+                >
+                  <div style={{
+                    width: '50px',
+                    height: '50px',
+                    backgroundColor: '#f59e0b',
+                    borderRadius: '0.75rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginBottom: '1rem'
+                  }}>
+                    <span style={{ fontSize: '1.5rem' }}>📚</span>
+                  </div>
+                  <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold', color: colors.dark, marginBottom: '0.5rem' }}>
+                    Business Analytics
+                  </h3>
+                  <p style={{ color: colors.gray, fontSize: '0.875rem', lineHeight: '1.5' }}>
+                    Manage performance, user behaviour, and trends to make data-driven decisons and improve holistically
                   </p>
                 </button>
               </div>
