@@ -4,212 +4,322 @@ import { resourcesAPI } from '../../services/api';
 import ResourceForm from './ResourceForm';
 import { toast } from 'react-hot-toast';
 import { 
-  Plus, 
-  Edit, 
-  Trash2, 
-  Book, 
-  Monitor, 
-  Package,
-  FileText,
-  Search,
-  DollarSign,
-  Users,
-  Building,
-  GraduationCap,
-  AlertTriangle,
-  TrendingUp,
-  BarChart3,
-  RefreshCw
+  BookOpen, Plus, Edit, Trash2, Search, Filter, Download, Upload, Eye, Share2,
+  FileText, Video, Image, Music, Archive, Link, Folder, FolderOpen, Star,
+  Grid, List, ChevronDown, ChevronUp, User, Clock, TrendingUp, BarChart3,
+  RefreshCw, Copy, ExternalLink, Play, Pause, Heart, Tag, Globe, Lock,
+  Users, Calendar, Target, Award, Zap, Activity, FileImage, FileVideo,
+  FilePlus, FolderPlus, HardDrive, CloudDownload, Bookmark, BookmarkPlus
 } from 'lucide-react';
 
 const ResourceList = () => {
   const [resources, setResources] = useState([]);
-  const [analytics, setAnalytics] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingResource, setEditingResource] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [filters, setFilters] = useState({
-    type: '',
-    language: '',
-    publisher: ''
-  });
+  const [categoryFilter, setCategoryFilter] = useState('');
+  const [typeFilter, setTypeFilter] = useState('');
+  const [levelFilter, setLevelFilter] = useState('');
+  const [accessFilter, setAccessFilter] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
+  const [viewMode, setViewMode] = useState('grid'); // grid, list, folder
+  const [showStats, setShowStats] = useState(true);
+  const [showUsageStats, setShowUsageStats] = useState(false);
+  const [favorites, setFavorites] = useState([]);
   const { user } = useAuth();
 
-  // Class Measures Brand Colors
   const colors = {
     primary: '#c55c5c',
     secondary: '#f4c842',
     dark: '#1e1e3c',
     white: '#ffffff',
     gray: '#6b7280',
-    lightGray: '#f3f4f6'
+    lightGray: '#f3f4f6',
+    success: '#10b981',
+    warning: '#f59e0b',
+    danger: '#ef4444',
+    info: '#3b82f6'
   };
 
-  // Resource type colors and icons
-  const resourceTypes = {
-    'Book': { 
-      bg: '#dbeafe', 
-      border: '#3b82f6', 
-      icon: <Book size={20} />,
-      color: '#3b82f6'
-    },
-    'Platform': { 
-      bg: '#ecfdf5', 
-      border: '#10b981', 
-      icon: <Monitor size={20} />,
-      color: '#10b981'
-    },
-    'Hardware': { 
-      bg: '#fef3c7', 
-      border: '#f59e0b', 
-      icon: <Package size={20} />,
-      color: '#f59e0b'
-    },
-    'Digital': { 
-      bg: '#f3e8ff', 
-      border: '#8b5cf6', 
-      icon: <FileText size={20} />,
-      color: '#8b5cf6'
+  // Resource configuration
+  const programs = ['Coding', 'Robotics', 'Chess', 'Reading', 'French Classes', 'Entrepreneurship', 'General'];
+  const resourceTypes = ['Document', 'Video', 'Audio', 'Image', 'Interactive', 'Link', 'Archive', 'Worksheet', 'Assessment'];
+  const skillLevels = ['Beginner', 'Intermediate', 'Advanced', 'All Levels'];
+  const accessLevels = ['Public', 'Students Only', 'Instructors Only', 'Admin Only'];
+
+  // Load resources from API
+  const loadResources = async (showRefreshIndicator = false) => {
+    try {
+      if (showRefreshIndicator) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
+      
+      console.log('🔄 Loading resources...');
+      const response = await resourcesAPI.getAll();
+      console.log('📥 Resources API response:', response);
+      
+      // Handle different response structures
+      let resourcesData = [];
+      if (response.resources) {
+        resourcesData = response.resources;
+      } else if (response.data && response.data.resources) {
+        resourcesData = response.data.resources;
+      } else if (Array.isArray(response)) {
+        resourcesData = response;
+      } else if (response.data && Array.isArray(response.data)) {
+        resourcesData = response.data;
+      }
+      
+      console.log('🎯 Final resourcesData to set:', resourcesData);
+      setResources(resourcesData);
+      
+    } catch (error) {
+      console.error('❌ Error loading resources:', error);
+      toast.error('Failed to load resources');
+      setResources([]);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
     }
-  };
-
-  // Publisher colors
-  const publisherColors = {
-    // French Publishers
-    'Hachette': { bg: '#fee2e2', border: '#dc2626', text: '#dc2626' },
-    'Didier': { bg: '#fef3c7', border: '#d97706', text: '#d97706' },
-    'CLE International': { bg: '#ecfdf5', border: '#059669', text: '#059669' },
-    
-    // English Publishers
-    'Cambridge': { bg: '#dbeafe', border: '#2563eb', text: '#2563eb' },
-    'Oxford': { bg: '#f3e8ff', border: '#7c3aed', text: '#7c3aed' },
-    'Pearson': { bg: '#fce7f3', border: '#c026d3', text: '#c026d3' },
-    'Brilliant': { bg: '#fff7ed', border: '#ea580c', text: '#ea580c' },
-    'Unique Books': { bg: '#f0fdf4', border: '#16a34a', text: '#16a34a' },
-    
-    // Platforms
-    'PurpleMash': { bg: '#f3e8ff', border: '#8b5cf6', text: '#8b5cf6' },
-    'Scholastic Learning Zone': { bg: '#dbeafe', border: '#3b82f6', text: '#3b82f6' }
   };
 
   useEffect(() => {
     loadResources();
-    loadAnalytics();
-  }, [filters, searchQuery]);
+    // Load user favorites from localStorage
+    const savedFavorites = JSON.parse(localStorage.getItem(`favorites_${user._id}`) || '[]');
+    setFavorites(savedFavorites);
+  }, [user._id]);
 
-  const loadResources = async () => {
-    try {
-      const params = {};
-      if (searchQuery) params.q = searchQuery;
-      Object.entries(filters).forEach(([key, value]) => {
-        if (value) params[key] = value;
-      });
-      
-      const response = await resourcesAPI.getAll(params);
-      console.log('Resources response:', response);
-      
-      // Fix: Handle both response.resources and response.data.resources
-      const resourcesData = response.resources || response.data?.resources || [];
-      setResources(resourcesData);
-    } catch (error) {
-      console.error('Error loading resources:', error);
-      setResources([]);
-    } finally {
-      setLoading(false);
-    }
+  // Handle successful resource save
+  const handleResourceSaved = () => {
+    setShowForm(false);
+    setEditingResource(null);
+    loadResources(true);
   };
 
-  const loadAnalytics = async () => {
-    try {
-      const response = await resourcesAPI.getAnalytics();
-      console.log('Analytics response:', response);
-      
-      // Fix: Handle both response.summary and response.data.summary
-      const analyticsData = response.summary || response.data?.summary || {
-        totalResources: 0,
-        typeBreakdown: [],
-        languageBreakdown: [],
-        publisherBreakdown: [],
-        lowStockCount: 0,
-        lowStockItems: [],
-        inventoryValue: { totalCostValue: 0, totalRetailValue: 0 }
-      };
-      setAnalytics(analyticsData);
-    } catch (error) {
-      console.error('Error loading analytics:', error);
-      setAnalytics({
-        totalResources: 0,
-        typeBreakdown: [],
-        languageBreakdown: [],
-        publisherBreakdown: [],
-        lowStockCount: 0,
-        lowStockItems: [],
-        inventoryValue: { totalCostValue: 0, totalRetailValue: 0 }
-      });
+  // Handle edit resource
+  const handleEditResource = (resource) => {
+    if (user.role !== 'admin' && user.role !== 'tutor' && resource.uploadedBy !== user._id) {
+      toast.error('You can only edit resources you uploaded');
+      return;
     }
-  };
-
-  const handleDelete = async (id) => {
-    if (window.confirm('Are you sure you want to delete this resource?')) {
-      try {
-        await resourcesAPI.delete(id);
-        toast.success('Resource deleted successfully');
-        loadResources();
-        loadAnalytics();
-      } catch (error) {
-        toast.error('Failed to delete resource');
-      }
-    }
-  };
-
-  const handleEdit = (resource) => {
     setEditingResource(resource);
     setShowForm(true);
   };
 
-  const handleAddNew = () => {
-    setEditingResource(null);
-    setShowForm(true);
+  // Handle delete resource
+  const handleDeleteResource = async (resourceId, resource) => {
+    if (user.role !== 'admin' && resource.uploadedBy !== user._id) {
+      toast.error('You can only delete resources you uploaded');
+      return;
+    }
+
+    if (!window.confirm('Are you sure you want to delete this resource?')) {
+      return;
+    }
+
+    try {
+      await resourcesAPI.delete(resourceId);
+      toast.success('🗑️ Resource deleted successfully!');
+      loadResources(true);
+    } catch (error) {
+      console.error('Error deleting resource:', error);
+      toast.error('Failed to delete resource');
+    }
   };
 
-  const handleFormClose = () => {
-    setShowForm(false);
-    setEditingResource(null);
+  // Handle resource download/view
+  const handleResourceAccess = async (resource) => {
+    try {
+      // Track download/view
+      const updatedResource = {
+        ...resource,
+        downloadCount: (resource.downloadCount || 0) + 1,
+        lastAccessed: new Date().toISOString(),
+        accessHistory: [
+          ...(resource.accessHistory || []),
+          {
+            userId: user._id,
+            userName: user.name,
+            accessDate: new Date().toISOString(),
+            action: resource.type === 'Link' ? 'viewed' : 'downloaded'
+          }
+        ]
+      };
+      
+      await resourcesAPI.update(resource._id, updatedResource);
+      
+      if (resource.type === 'Link') {
+        window.open(resource.url, '_blank');
+        toast.success('🔗 Link opened in new tab');
+      } else {
+        // In a real app, this would trigger file download
+        toast.success(`📥 ${resource.name} download started`);
+      }
+      
+      loadResources(true);
+    } catch (error) {
+      console.error('Error accessing resource:', error);
+      toast.error('Failed to access resource');
+    }
   };
 
-  const handleResourceSaved = () => {
-    loadResources();
-    loadAnalytics();
-    setShowForm(false);
-    setEditingResource(null);
+  // Share resource
+  const handleShareResource = async (resource) => {
+    try {
+      const shareUrl = `${window.location.origin}/resources/${resource._id}`;
+      await navigator.clipboard.writeText(shareUrl);
+      toast.success('🔗 Resource link copied to clipboard!');
+    } catch (error) {
+      toast.error('Failed to copy link');
+    }
   };
 
-  const handleFilterChange = (filterType, value) => {
-    setFilters(prev => ({
-      ...prev,
-      [filterType]: value
-    }));
+  // Toggle favorite
+  const handleToggleFavorite = (resourceId) => {
+    const newFavorites = favorites.includes(resourceId)
+      ? favorites.filter(id => id !== resourceId)
+      : [...favorites, resourceId];
+    
+    setFavorites(newFavorites);
+    localStorage.setItem(`favorites_${user._id}`, JSON.stringify(newFavorites));
+    
+    toast.success(
+      favorites.includes(resourceId) 
+        ? '💔 Removed from favorites' 
+        : '❤️ Added to favorites'
+    );
   };
 
-  const clearFilters = () => {
-    setFilters({
-      type: '',
-      language: '',
-      publisher: ''
-    });
-    setSearchQuery('');
-  };
-
+  // Create test resource
   const createTestResource = async () => {
     try {
-      const response = await resourcesAPI.createTest();
-      console.log('Test resource response:', response);
+      const testResources = [
+        {
+          name: 'Python Basics Cheat Sheet',
+          description: 'Comprehensive Python syntax reference for beginners',
+          category: 'Coding',
+          type: 'Document',
+          level: 'Beginner',
+          accessLevel: 'Students Only',
+          fileSize: '2.4 MB',
+          format: 'PDF',
+          url: '/resources/python-basics.pdf',
+          uploadedBy: user._id,
+          uploaderName: user.name,
+          uploadDate: new Date().toISOString(),
+          downloadCount: Math.floor(Math.random() * 50),
+          tags: ['python', 'syntax', 'reference', 'programming'],
+          isActive: true,
+          thumbnail: '/thumbnails/python-cheat.jpg'
+        },
+        {
+          name: 'Chess Opening Principles Video',
+          description: 'Learn the fundamental principles of chess openings',
+          category: 'Chess',
+          type: 'Video',
+          level: 'Intermediate',
+          accessLevel: 'Students Only',
+          fileSize: '145 MB',
+          format: 'MP4',
+          duration: '15:30',
+          url: '/resources/chess-openings.mp4',
+          uploadedBy: user._id,
+          uploaderName: user.name,
+          uploadDate: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+          downloadCount: Math.floor(Math.random() * 30),
+          tags: ['chess', 'openings', 'strategy', 'video'],
+          isActive: true,
+          thumbnail: '/thumbnails/chess-video.jpg'
+        },
+        {
+          name: 'Robotics Assembly Guide',
+          description: 'Step-by-step guide for building your first robot',
+          category: 'Robotics',
+          type: 'Interactive',
+          level: 'Beginner',
+          accessLevel: 'Students Only',
+          url: 'https://interactive-robotics-guide.com',
+          uploadedBy: user._id,
+          uploaderName: user.name,
+          uploadDate: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+          downloadCount: Math.floor(Math.random() * 25),
+          tags: ['robotics', 'assembly', 'tutorial', 'interactive'],
+          isActive: true,
+          thumbnail: '/thumbnails/robotics-guide.jpg'
+        },
+        {
+          name: 'French Pronunciation Audio',
+          description: 'Native speaker pronunciation examples',
+          category: 'French Classes',
+          type: 'Audio',
+          level: 'All Levels',
+          accessLevel: 'Students Only',
+          fileSize: '28 MB',
+          format: 'MP3',
+          duration: '45:20',
+          url: '/resources/french-pronunciation.mp3',
+          uploadedBy: user._id,
+          uploaderName: user.name,
+          uploadDate: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+          downloadCount: Math.floor(Math.random() * 40),
+          tags: ['french', 'pronunciation', 'audio', 'listening'],
+          isActive: true,
+          thumbnail: '/thumbnails/french-audio.jpg'
+        },
+        {
+          name: 'Reading Comprehension Worksheets',
+          description: 'Collection of age-appropriate reading exercises',
+          category: 'Reading',
+          type: 'Worksheet',
+          level: 'Beginner',
+          accessLevel: 'Students Only',
+          fileSize: '8.7 MB',
+          format: 'ZIP',
+          url: '/resources/reading-worksheets.zip',
+          uploadedBy: user._id,
+          uploaderName: user.name,
+          uploadDate: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+          downloadCount: Math.floor(Math.random() * 60),
+          tags: ['reading', 'comprehension', 'worksheets', 'practice'],
+          isActive: true,
+          thumbnail: '/thumbnails/reading-worksheets.jpg'
+        },
+        {
+          name: 'Young Entrepreneur Assessment',
+          description: 'Business idea evaluation rubric and templates',
+          category: 'Entrepreneurship',
+          type: 'Assessment',
+          level: 'Advanced',
+          accessLevel: 'Instructors Only',
+          fileSize: '1.2 MB',
+          format: 'DOCX',
+          url: '/resources/entrepreneur-assessment.docx',
+          uploadedBy: user._id,
+          uploaderName: user.name,
+          uploadDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+          downloadCount: Math.floor(Math.random() * 15),
+          tags: ['entrepreneurship', 'assessment', 'business', 'evaluation'],
+          isActive: true,
+          thumbnail: '/thumbnails/business-assessment.jpg'
+        }
+      ];
+
+      const randomResource = testResources[Math.floor(Math.random() * testResources.length)];
+      
+      const testResourceData = {
+        ...randomResource,
+        name: `${randomResource.name} - ${new Date().toLocaleDateString()}`
+      };
+
+      const response = await resourcesAPI.create(testResourceData);
       
       if (response.resource || response.message) {
         toast.success('🧪 Test resource created successfully!');
-        loadResources();
-        loadAnalytics();
+        loadResources(true);
       } else {
         toast.error('Failed to create test resource');
       }
@@ -219,520 +329,551 @@ const ResourceList = () => {
     }
   };
 
-  const getPublisherName = (resource) => {
-    if (resource.publisher?.frenchPublisher) return resource.publisher.frenchPublisher;
-    if (resource.publisher?.englishPublisher) return resource.publisher.englishPublisher;
-    if (resource.platformDetails?.platformName) return resource.platformDetails.platformName;
-    return 'Unknown';
+  // Get resource type icon
+  const getResourceTypeIcon = (type) => {
+    switch (type?.toLowerCase()) {
+      case 'document': return <FileText size={20} />;
+      case 'video': return <Video size={20} />;
+      case 'audio': return <Music size={20} />;
+      case 'image': return <Image size={20} />;
+      case 'interactive': return <Globe size={20} />;
+      case 'link': return <Link size={20} />;
+      case 'archive': return <Archive size={20} />;
+      case 'worksheet': return <FileImage size={20} />;
+      case 'assessment': return <ClipboardList size={20} />;
+      default: return <FileText size={20} />;
+    }
   };
 
-  const getStockStatus = (resource) => {
-    const available = resource.inventory?.available || 0;
-    const minimum = resource.inventory?.minimumStock || 5;
+  // Get resource type color
+  const getResourceTypeColor = (type) => {
+    switch (type?.toLowerCase()) {
+      case 'document': return colors.info;
+      case 'video': return '#8b5cf6';
+      case 'audio': return colors.success;
+      case 'image': return colors.warning;
+      case 'interactive': return '#06b6d4';
+      case 'link': return colors.primary;
+      case 'archive': return colors.gray;
+      case 'worksheet': return '#84cc16';
+      case 'assessment': return colors.danger;
+      default: return colors.gray;
+    }
+  };
+
+  // Get access level color
+  const getAccessLevelColor = (level) => {
+    switch (level) {
+      case 'Public': return colors.success;
+      case 'Students Only': return colors.info;
+      case 'Instructors Only': return colors.warning;
+      case 'Admin Only': return colors.danger;
+      default: return colors.gray;
+    }
+  };
+
+  // Format file size
+  const formatFileSize = (bytes) => {
+    if (!bytes) return 'Unknown size';
+    const units = ['B', 'KB', 'MB', 'GB'];
+    let size = parseInt(bytes);
+    let unitIndex = 0;
     
-    if (available === 0) return { status: 'Out of Stock', color: '#dc2626', bg: '#fee2e2' };
-    if (available <= minimum) return { status: 'Low Stock', color: '#d97706', bg: '#fef3c7' };
-    return { status: 'In Stock', color: '#059669', bg: '#ecfdf5' };
+    while (size >= 1024 && unitIndex < units.length - 1) {
+      size /= 1024;
+      unitIndex++;
+    }
+    
+    return `${size.toFixed(1)} ${units[unitIndex]}`;
+  };
+
+  // Check if user can access resource
+  const canAccessResource = (resource) => {
+    switch (resource.accessLevel) {
+      case 'Public': return true;
+      case 'Students Only': return user.role === 'student' || user.role === 'tutor' || user.role === 'admin';
+      case 'Instructors Only': return user.role === 'tutor' || user.role === 'admin';
+      case 'Admin Only': return user.role === 'admin';
+      default: return false;
+    }
+  };
+
+  // Filter resources
+  const filteredResources = resources.filter(resource => {
+    const matchesSearch = !searchQuery || 
+      resource.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      resource.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      resource.tags?.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()));
+    
+    const matchesCategory = !categoryFilter || resource.category === categoryFilter;
+    const matchesType = !typeFilter || resource.type === typeFilter;
+    const matchesLevel = !levelFilter || resource.level === levelFilter;
+    const matchesAccess = !accessFilter || resource.accessLevel === accessFilter;
+    const hasAccess = canAccessResource(resource);
+    
+    return matchesSearch && matchesCategory && matchesType && matchesLevel && matchesAccess && hasAccess;
+  });
+
+  // Calculate stats
+  const totalResources = resources.filter(r => canAccessResource(r)).length;
+  const totalDownloads = resources.reduce((sum, r) => sum + (r.downloadCount || 0), 0);
+  const recentUploads = resources.filter(r => {
+    const uploadDate = new Date(r.uploadDate);
+    const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    return uploadDate > weekAgo && canAccessResource(r);
+  }).length;
+  const favoriteCount = favorites.length;
+  const totalSize = resources.reduce((sum, r) => {
+    const size = r.fileSize || '0 MB';
+    const match = size.match(/(\d+\.?\d*)\s*(MB|GB|KB)/);
+    if (match) {
+      const value = parseFloat(match[1]);
+      const unit = match[2];
+      switch (unit) {
+        case 'GB': return sum + value * 1024;
+        case 'MB': return sum + value;
+        case 'KB': return sum + value / 1024;
+        default: return sum;
+      }
+    }
+    return sum;
+  }, 0);
+
+  // Export resources data (admin only)
+  const exportResources = () => {
+    if (user.role !== 'admin') {
+      toast.error('Only administrators can export data');
+      return;
+    }
+    
+    const csvContent = "data:text/csv;charset=utf-8," + 
+      "Resource Name,Category,Type,Level,Access Level,Downloads,File Size,Upload Date,Uploader\n" +
+      resources.map(r => 
+        `"${r.name}","${r.category}","${r.type}","${r.level}","${r.accessLevel}","${r.downloadCount || 0}","${r.fileSize || 'Unknown'}","${r.uploadDate}","${r.uploaderName}"`
+      ).join("\n");
+    
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `resources_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    toast.success('Resources data exported successfully!');
   };
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', padding: '3rem' }}>
-        <div style={{ 
-          animation: 'spin 1s linear infinite', 
-          borderRadius: '50%', 
-          height: '2rem', 
-          width: '2rem', 
-          border: `2px solid ${colors.lightGray}`, 
-          borderBottom: `2px solid ${colors.primary}` 
-        }}></div>
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ 
+            animation: 'spin 1s linear infinite', 
+            borderRadius: '50%', 
+            height: '3rem', 
+            width: '3rem', 
+            border: `2px solid ${colors.lightGray}`, 
+            borderBottom: `2px solid ${colors.primary}`,
+            margin: '0 auto 1rem'
+          }}></div>
+          <p style={{ color: colors.gray }}>Loading resources...</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div style={{ padding: '2rem', backgroundColor: colors.lightGray, minHeight: '100vh', position: 'relative' }}>
-      <div style={{ maxWidth: '1600px', margin: '0 auto' }}>
-        {/* Header */}
-        <div style={{ 
-          display: 'flex', 
-          justifyContent: 'space-between', 
-          alignItems: 'center', 
-          marginBottom: '2rem',
-          padding: '1.5rem',
+    <div style={{ padding: '2rem', backgroundColor: colors.lightGray, minHeight: '100vh' }}>
+      <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
+        
+        {/* Enhanced Header with Stats */}
+        <div style={{
           backgroundColor: colors.white,
           borderRadius: '1rem',
-          boxShadow: '0 4px 6px rgba(0,0,0,0.05)',
-          border: `2px solid ${colors.primary}20`
+          padding: '1.5rem',
+          marginBottom: '2rem',
+          boxShadow: '0 4px 6px rgba(0,0,0,0.05)'
         }}>
-          <div>
-            <h1 style={{ 
-              fontSize: '2rem', 
-              fontWeight: 'bold', 
-              color: colors.dark,
-              marginBottom: '0.5rem'
-            }}>
-              📚 Resource Catalog Management
-            </h1>
-            <p style={{ color: colors.gray, fontSize: '1rem' }}>
-              Complete inventory and catalog system for your educational business
-            </p>
-          </div>
-          
-          <div style={{ display: 'flex', gap: '1rem' }}>
-            <button
-              onClick={() => {
-                loadResources();
-                loadAnalytics();
-              }}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-                padding: '0.75rem 1rem',
-                backgroundColor: colors.lightGray,
-                color: colors.gray,
-                border: 'none',
-                borderRadius: '0.5rem',
-                cursor: 'pointer',
-                fontSize: '0.875rem',
-                fontWeight: '500'
-              }}
-            >
-              <RefreshCw size={16} />
-              Refresh
-            </button>
+          {/* Title and Quick Actions */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+            <div>
+              <h2 style={{ fontSize: '1.8rem', fontWeight: 'bold', color: colors.dark, margin: 0 }}>
+                📖 Resources Library
+              </h2>
+              <p style={{ color: colors.gray, fontSize: '0.9rem', margin: '0.25rem 0 0 0' }}>
+                Access learning materials, videos, worksheets and educational resources
+              </p>
+            </div>
+            
+            <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+              {/* View Toggle */}
+              <div style={{ display: 'flex', backgroundColor: colors.lightGray, borderRadius: '0.5rem', padding: '0.25rem' }}>
+                <button
+                  onClick={() => setViewMode('grid')}
+                  style={{
+                    padding: '0.5rem',
+                    backgroundColor: viewMode === 'grid' ? colors.white : 'transparent',
+                    border: 'none',
+                    borderRadius: '0.25rem',
+                    cursor: 'pointer',
+                    color: viewMode === 'grid' ? colors.dark : colors.gray
+                  }}
+                >
+                  <Grid size={16} />
+                </button>
+                <button
+                  onClick={() => setViewMode('list')}
+                  style={{
+                    padding: '0.5rem',
+                    backgroundColor: viewMode === 'list' ? colors.white : 'transparent',
+                    border: 'none',
+                    borderRadius: '0.25rem',
+                    cursor: 'pointer',
+                    color: viewMode === 'list' ? colors.dark : colors.gray
+                  }}
+                >
+                  <List size={16} />
+                </button>
+                <button
+                  onClick={() => setViewMode('folder')}
+                  style={{
+                    padding: '0.5rem',
+                    backgroundColor: viewMode === 'folder' ? colors.white : 'transparent',
+                    border: 'none',
+                    borderRadius: '0.25rem',
+                    cursor: 'pointer',
+                    color: viewMode === 'folder' ? colors.dark : colors.gray
+                  }}
+                >
+                  <Folder size={16} />
+                </button>
+              </div>
 
-            {user.role === 'admin' && (
+              {/* Export Button (Admin Only) */}
+              {user.role === 'admin' && (
+                <button
+                  onClick={exportResources}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    padding: '0.5rem 1rem',
+                    backgroundColor: colors.info,
+                    color: colors.white,
+                    border: 'none',
+                    borderRadius: '0.5rem',
+                    cursor: 'pointer',
+                    fontSize: '0.8rem',
+                    fontWeight: '500'
+                  }}
+                >
+                  <Download size={14} />
+                  Export
+                </button>
+              )}
+
               <button
                 onClick={createTestResource}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
                   gap: '0.5rem',
-                  padding: '0.75rem 1rem',
-                  backgroundColor: colors.secondary,
+                  padding: '0.5rem 1rem',
+                  backgroundColor: `${colors.secondary}20`,
                   color: colors.dark,
-                  border: 'none',
+                  border: `2px solid ${colors.secondary}`,
                   borderRadius: '0.5rem',
                   cursor: 'pointer',
-                  fontSize: '0.875rem',
+                  fontSize: '0.8rem',
                   fontWeight: '500'
                 }}
               >
-                🧪 Test Resource
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Prominent Add Resource Button Section */}
-        {user.role === 'admin' && (
-          <div style={{
-            backgroundColor: colors.white,
-            padding: '2rem',
-            borderRadius: '1rem',
-            marginBottom: '2rem',
-            boxShadow: '0 4px 6px rgba(0,0,0,0.05)',
-            border: `3px solid ${colors.primary}30`,
-            textAlign: 'center'
-          }}>
-            <h2 style={{ 
-              fontSize: '1.5rem', 
-              fontWeight: 'bold', 
-              color: colors.dark, 
-              marginBottom: '1rem' 
-            }}>
-              📚 Manage Your Resource Catalog
-            </h2>
-            <p style={{ 
-              color: colors.gray, 
-              fontSize: '1rem', 
-              marginBottom: '2rem',
-              maxWidth: '600px',
-              margin: '0 auto 2rem'
-            }}>
-              Add books, platforms, and educational materials to your catalog. Set multi-tier pricing for schools, teachers, and students.
-            </p>
-            
-            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
-              <button
-                onClick={handleAddNew}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.75rem',
-                  padding: '1.25rem 2rem',
-                  background: `linear-gradient(135deg, ${colors.primary}, ${colors.dark})`,
-                  color: colors.white,
-                  border: 'none',
-                  borderRadius: '1rem',
-                  cursor: 'pointer',
-                  fontSize: '1.125rem',
-                  fontWeight: '700',
-                  transition: 'all 0.3s',
-                  boxShadow: `0 8px 25px ${colors.primary}40`,
-                  minWidth: '200px'
-                }}
-                onMouseOver={(e) => {
-                  e.target.style.transform = 'translateY(-3px)';
-                  e.target.style.boxShadow = `0 12px 35px ${colors.primary}50`;
-                }}
-                onMouseOut={(e) => {
-                  e.target.style.transform = 'translateY(0)';
-                  e.target.style.boxShadow = `0 8px 25px ${colors.primary}40`;
-                }}
-              >
-                <Plus size={24} />
-                Add New Resource
+                🧪 Test
               </button>
               
-              <button
-                onClick={createTestResource}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.75rem',
-                  padding: '1.25rem 2rem',
-                  background: `linear-gradient(135deg, ${colors.secondary}, #e6b800)`,
-                  color: colors.dark,
-                  border: 'none',
-                  borderRadius: '1rem',
-                  cursor: 'pointer',
-                  fontSize: '1.125rem',
-                  fontWeight: '700',
-                  transition: 'all 0.3s',
-                  boxShadow: `0 8px 25px ${colors.secondary}40`,
-                  minWidth: '200px'
-                }}
-                onMouseOver={(e) => {
-                  e.target.style.transform = 'translateY(-3px)';
-                  e.target.style.boxShadow = `0 12px 35px ${colors.secondary}50`;
-                }}
-                onMouseOut={(e) => {
-                  e.target.style.transform = 'translateY(0)';
-                  e.target.style.boxShadow = `0 8px 25px ${colors.secondary}40`;
-                }}
-              >
-                🧪 Quick Sample
-              </button>
+              {(user.role === 'admin' || user.role === 'tutor') && (
+                <button
+                  onClick={() => setShowForm(true)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    padding: '0.5rem 1rem',
+                    background: `linear-gradient(135deg, ${colors.secondary}, ${colors.primary})`,
+                    color: colors.dark,
+                    border: 'none',
+                    borderRadius: '0.5rem',
+                    cursor: 'pointer',
+                    fontSize: '0.8rem',
+                    fontWeight: '600'
+                  }}
+                >
+                  <Plus size={14} />
+                  Add Resource
+                </button>
+              )}
             </div>
           </div>
-        )}
 
-        {/* Analytics Dashboard */}
-        {analytics && (
-          <div style={{ 
-            display: 'grid', 
-            gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', 
-            gap: '1.5rem',
-            marginBottom: '2rem'
-          }}>
-            {/* Total Resources */}
+          {/* Stats Dashboard */}
+          {showStats && (
             <div style={{
-              backgroundColor: colors.white,
+              backgroundColor: colors.lightGray,
+              borderRadius: '0.75rem',
               padding: '1.5rem',
-              borderRadius: '1rem',
-              boxShadow: '0 4px 6px rgba(0,0,0,0.05)',
-              border: `2px solid ${colors.primary}20`
+              marginBottom: '1.5rem'
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
-                <div style={{
-                  width: '3rem',
-                  height: '3rem',
-                  borderRadius: '0.75rem',
-                  backgroundColor: `${colors.primary}15`,
-                  border: `2px solid ${colors.primary}`,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}>
-                  <BarChart3 size={20} style={{ color: colors.primary }} />
+              {/* Main Stats Row */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: '2rem', fontWeight: 'bold', color: colors.primary }}>{totalResources}</div>
+                  <div style={{ fontSize: '0.85rem', color: colors.gray }}>Available Resources</div>
                 </div>
-                <div>
-                  <h3 style={{ fontSize: '1.125rem', fontWeight: '700', color: colors.dark, marginBottom: '0.25rem' }}>
-                    Total Resources
-                  </h3>
-                  <p style={{ fontSize: '0.875rem', color: colors.gray }}>
-                    Active catalog items
-                  </p>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: '2rem', fontWeight: 'bold', color: colors.success }}>{totalDownloads}</div>
+                  <div style={{ fontSize: '0.85rem', color: colors.gray }}>Total Downloads</div>
+                </div>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: '2rem', fontWeight: 'bold', color: colors.info }}>{recentUploads}</div>
+                  <div style={{ fontSize: '0.85rem', color: colors.gray }}>Recent Uploads</div>
+                </div>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: '2rem', fontWeight: 'bold', color: colors.warning }}>{favoriteCount}</div>
+                  <div style={{ fontSize: '0.85rem', color: colors.gray }}>My Favorites</div>
+                </div>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: '2rem', fontWeight: 'bold', color: colors.secondary }}>{Math.round(totalSize)} MB</div>
+                  <div style={{ fontSize: '0.85rem', color: colors.gray }}>Total Size</div>
                 </div>
               </div>
-              <div style={{ fontSize: '2.5rem', fontWeight: 'bold', color: colors.primary }}>
-                {analytics.totalResources}
-              </div>
-            </div>
 
-            {/* Low Stock Alert */}
-            <div style={{
-              backgroundColor: colors.white,
-              padding: '1.5rem',
-              borderRadius: '1rem',
-              boxShadow: '0 4px 6px rgba(0,0,0,0.05)',
-              border: `2px solid ${analytics.lowStockCount > 0 ? '#f59e0b' : '#10b981'}20`
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
-                <div style={{
-                  width: '3rem',
-                  height: '3rem',
-                  borderRadius: '0.75rem',
-                  backgroundColor: analytics.lowStockCount > 0 ? '#fef3c7' : '#ecfdf5',
-                  border: `2px solid ${analytics.lowStockCount > 0 ? '#f59e0b' : '#10b981'}`,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}>
-                  <AlertTriangle size={20} style={{ color: analytics.lowStockCount > 0 ? '#f59e0b' : '#10b981' }} />
-                </div>
+              {/* Usage Section (Collapsible) */}
+              {user.role === 'admin' && (
                 <div>
-                  <h3 style={{ fontSize: '1.125rem', fontWeight: '700', color: colors.dark, marginBottom: '0.25rem' }}>
-                    Stock Alerts
-                  </h3>
-                  <p style={{ fontSize: '0.875rem', color: colors.gray }}>
-                    {analytics.lowStockCount > 0 ? 'Items need restocking' : 'All items in stock'}
-                  </p>
+                  <button
+                    onClick={() => setShowUsageStats(!showUsageStats)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.5rem',
+                      padding: '0.5rem',
+                      backgroundColor: 'transparent',
+                      border: 'none',
+                      cursor: 'pointer',
+                      color: colors.gray,
+                      fontSize: '0.85rem',
+                      fontWeight: '500'
+                    }}
+                  >
+                    {showUsageStats ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                    Usage Analytics
+                  </button>
+                  
+                  {showUsageStats && (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginTop: '1rem', paddingTop: '1rem', borderTop: `1px solid ${colors.gray}30` }}>
+                      <div style={{ textAlign: 'center' }}>
+                        <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: colors.success }}>{Math.round(totalDownloads / totalResources) || 0}</div>
+                        <div style={{ fontSize: '0.85rem', color: colors.gray }}>Avg Downloads/Resource</div>
+                      </div>
+                      <div style={{ textAlign: 'center' }}>
+                        <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: colors.info }}>{resourceTypes.length}</div>
+                        <div style={{ fontSize: '0.85rem', color: colors.gray }}>Resource Types</div>
+                      </div>
+                      <div style={{ textAlign: 'center' }}>
+                        <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: colors.warning }}>{Math.round((totalSize / 1024) * 100) / 100} GB</div>
+                        <div style={{ fontSize: '0.85rem', color: colors.gray }}>Storage Used</div>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              </div>
-              <div style={{ fontSize: '2.5rem', fontWeight: 'bold', color: analytics.lowStockCount > 0 ? '#f59e0b' : '#10b981' }}>
-                {analytics.lowStockCount}
-              </div>
+              )}
             </div>
+          )}
 
-            {/* Inventory Value */}
-            <div style={{
-              backgroundColor: colors.white,
-              padding: '1.5rem',
-              borderRadius: '1rem',
-              boxShadow: '0 4px 6px rgba(0,0,0,0.05)',
-              border: `2px solid ${colors.secondary}20`
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
-                <div style={{
-                  width: '3rem',
-                  height: '3rem',
-                  borderRadius: '0.75rem',
-                  backgroundColor: `${colors.secondary}15`,
-                  border: `2px solid ${colors.secondary}`,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}>
-                  <TrendingUp size={20} style={{ color: colors.secondary }} />
-                </div>
-                <div>
-                  <h3 style={{ fontSize: '1.125rem', fontWeight: '700', color: colors.dark, marginBottom: '0.25rem' }}>
-                    Inventory Value
-                  </h3>
-                  <p style={{ fontSize: '0.875rem', color: colors.gray }}>
-                    Total retail value
-                  </p>
-                </div>
-              </div>
-              <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: colors.dark }}>
-                KSh {analytics.inventoryValue?.totalRetailValue?.toLocaleString() || '0'}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Search and Filters */}
-        <div style={{
-          backgroundColor: colors.white,
-          padding: '1.5rem',
-          borderRadius: '1rem',
-          marginBottom: '2rem',
-          boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
-            <Search size={18} style={{ color: colors.gray }} />
-            <h3 style={{ fontSize: '1rem', fontWeight: '600', color: colors.dark }}>
-              Search & Filter Resources
-            </h3>
-          </div>
-          
+          {/* Advanced Search and Filters */}
           <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr auto', gap: '1rem', alignItems: 'end' }}>
-            {/* Search Input */}
-            <div>
+            <div style={{ position: 'relative' }}>
+              <Search size={20} style={{
+                position: 'absolute',
+                left: '1rem',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                color: colors.gray
+              }} />
               <input
                 type="text"
+                placeholder="Search resources, tags..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 style={{
                   width: '100%',
-                  padding: '0.75rem',
+                  padding: '0.75rem 1rem 0.75rem 3rem',
                   border: `2px solid ${colors.lightGray}`,
                   borderRadius: '0.5rem',
-                  fontSize: '0.875rem'
+                  fontSize: '0.9rem',
+                  backgroundColor: colors.white
                 }}
-                placeholder="Search by name, series, category..."
               />
             </div>
 
-            {/* Type Filter */}
-            <div>
+            <select
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value)}
+              style={{
+                padding: '0.75rem',
+                border: `2px solid ${colors.lightGray}`,
+                borderRadius: '0.5rem',
+                fontSize: '0.85rem',
+                backgroundColor: colors.white
+              }}
+            >
+              <option value="">All Categories</option>
+              {programs.map(program => (
+                <option key={program} value={program}>{program}</option>
+              ))}
+            </select>
+
+            <select
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value)}
+              style={{
+                padding: '0.75rem',
+                border: `2px solid ${colors.lightGray}`,
+                borderRadius: '0.5rem',
+                fontSize: '0.85rem',
+                backgroundColor: colors.white
+              }}
+            >
+              <option value="">All Types</option>
+              {resourceTypes.map(type => (
+                <option key={type} value={type}>{type}</option>
+              ))}
+            </select>
+
+            <select
+              value={levelFilter}
+              onChange={(e) => setLevelFilter(e.target.value)}
+              style={{
+                padding: '0.75rem',
+                border: `2px solid ${colors.lightGray}`,
+                borderRadius: '0.5rem',
+                fontSize: '0.85rem',
+                backgroundColor: colors.white
+              }}
+            >
+              <option value="">All Levels</option>
+              {skillLevels.map(level => (
+                <option key={level} value={level}>{level}</option>
+              ))}
+            </select>
+
+            <button
+              onClick={() => {
+                setSearchQuery('');
+                setCategoryFilter('');
+                setTypeFilter('');
+                setLevelFilter('');
+                setAccessFilter('');
+              }}
+              style={{
+                padding: '0.75rem 1rem',
+                backgroundColor: colors.lightGray,
+                color: colors.gray,
+                border: 'none',
+                borderRadius: '0.5rem',
+                cursor: 'pointer',
+                fontSize: '0.8rem',
+                fontWeight: '500'
+              }}
+            >
+              Clear
+            </button>
+          </div>
+
+          {/* Additional Filters Row */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '1rem', marginTop: '1rem' }}>
+            {user.role === 'admin' && (
               <select
-                value={filters.type}
-                onChange={(e) => handleFilterChange('type', e.target.value)}
+                value={accessFilter}
+                onChange={(e) => setAccessFilter(e.target.value)}
                 style={{
-                  width: '100%',
                   padding: '0.75rem',
                   border: `2px solid ${colors.lightGray}`,
                   borderRadius: '0.5rem',
-                  fontSize: '0.875rem',
+                  fontSize: '0.85rem',
                   backgroundColor: colors.white
                 }}
               >
-                <option value="">All Types</option>
-                <option value="Book">Books</option>
-                <option value="Platform">Platforms</option>
-                <option value="Hardware">Hardware</option>
-                <option value="Digital">Digital</option>
+                <option value="">All Access Levels</option>
+                {accessLevels.map(level => (
+                  <option key={level} value={level}>{level}</option>
+                ))}
               </select>
-            </div>
+            )}
 
-            {/* Language Filter */}
-            <div>
-              <select
-                value={filters.language}
-                onChange={(e) => handleFilterChange('language', e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '0.75rem',
-                  border: `2px solid ${colors.lightGray}`,
-                  borderRadius: '0.5rem',
-                  fontSize: '0.875rem',
-                  backgroundColor: colors.white
-                }}
-              >
-                <option value="">All Languages</option>
-                <option value="French">French</option>
-                <option value="English">English</option>
-                <option value="Swahili">Swahili</option>
-                <option value="Multi-language">Multi-language</option>
-              </select>
-            </div>
-
-            {/* Publisher Filter */}
-            <div>
-              <select
-                value={filters.publisher}
-                onChange={(e) => handleFilterChange('publisher', e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '0.75rem',
-                  border: `2px solid ${colors.lightGray}`,
-                  borderRadius: '0.5rem',
-                  fontSize: '0.875rem',
-                  backgroundColor: colors.white
-                }}
-              >
-                <option value="">All Publishers</option>
-                <optgroup label="French Publishers">
-                  <option value="Hachette">Hachette</option>
-                  <option value="Didier">Didier</option>
-                  <option value="CLE International">CLE International</option>
-                </optgroup>
-                <optgroup label="English Publishers">
-                  <option value="Cambridge">Cambridge</option>
-                  <option value="Oxford">Oxford</option>
-                  <option value="Pearson">Pearson</option>
-                  <option value="Brilliant">Brilliant</option>
-                </optgroup>
-              </select>
-            </div>
-
-            {/* Clear Filters */}
-            <div>
-              <button
-                onClick={clearFilters}
-                style={{
-                  padding: '0.75rem 1rem',
-                  backgroundColor: colors.lightGray,
-                  color: colors.gray,
-                  border: 'none',
-                  borderRadius: '0.5rem',
-                  cursor: 'pointer',
-                  fontSize: '0.8rem',
-                  fontWeight: '500',
-                  whiteSpace: 'nowrap'
-                }}
-              >
-                Clear
-              </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', color: colors.gray }}>
+              Showing {filteredResources.length} of {totalResources} resources
             </div>
           </div>
         </div>
 
-        {/* Resources Grid */}
-        {resources.length === 0 ? (
+        {/* Resources Grid/List */}
+        {filteredResources.length === 0 ? (
           <div style={{
             backgroundColor: colors.white,
-            padding: '4rem 2rem',
             borderRadius: '1rem',
-            boxShadow: '0 4px 6px rgba(0,0,0,0.05)',
-            textAlign: 'center'
+            padding: '3rem',
+            textAlign: 'center',
+            boxShadow: '0 4px 6px rgba(0,0,0,0.05)'
           }}>
-            <div style={{
-              width: '80px',
-              height: '80px',
-              margin: '0 auto 1.5rem',
-              borderRadius: '50%',
-              backgroundColor: `${colors.secondary}20`,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}>
-              <Book size={40} style={{ color: colors.primary }} />
-            </div>
-            
-            <h3 style={{ 
-              fontSize: '1.5rem', 
-              fontWeight: '600', 
-              color: colors.dark, 
-              marginBottom: '0.5rem' 
-            }}>
-              {searchQuery || Object.values(filters).some(v => v) ? 'No resources match your criteria' : 'No resources yet'}
+            <BookOpen size={64} style={{ color: colors.gray, margin: '0 auto 1rem' }} />
+            <h3 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: colors.dark, marginBottom: '0.5rem' }}>
+              {resources.length === 0 ? 'No resources available' : 'No resources match your filters'}
             </h3>
-            
-            <p style={{ color: colors.gray, fontSize: '1rem', marginBottom: '2rem' }}>
-              {searchQuery || Object.values(filters).some(v => v) 
-                ? 'Try adjusting your search terms or filters'
-                : 'Start building your resource catalog with books, platforms, and materials'
+            <p style={{ color: colors.gray, marginBottom: '1.5rem' }}>
+              {resources.length === 0 
+                ? 'Upload your first educational resource to get started'
+                : 'Try adjusting your search terms or filters'
               }
             </p>
-
-            {user.role === 'admin' && (
+            {resources.length === 0 && (user.role === 'admin' || user.role === 'tutor') && (
               <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
-                <button
-                  onClick={handleAddNew}
-                  style={{
-                    padding: '1rem 2rem',
-                    backgroundColor: colors.primary,
-                    color: colors.white,
-                    border: 'none',
-                    borderRadius: '0.75rem',
-                    cursor: 'pointer',
-                    fontSize: '1rem',
-                    fontWeight: '600'
-                  }}
-                >
-                  <Plus size={18} style={{ marginRight: '0.5rem' }} />
-                  Add Your First Resource
-                </button>
                 <button
                   onClick={createTestResource}
                   style={{
-                    padding: '1rem 2rem',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    padding: '0.75rem 1.5rem',
                     backgroundColor: colors.secondary,
                     color: colors.dark,
                     border: 'none',
-                    borderRadius: '0.75rem',
+                    borderRadius: '0.5rem',
                     cursor: 'pointer',
-                    fontSize: '1rem',
+                    fontSize: '0.875rem',
                     fontWeight: '600'
                   }}
                 >
                   🧪 Create Test Resource
+                </button>
+                <button
+                  onClick={() => setShowForm(true)}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    padding: '0.75rem 1.5rem',
+                    background: `linear-gradient(135deg, ${colors.secondary}, ${colors.primary})`,
+                    color: colors.dark,
+                    border: 'none',
+                    borderRadius: '0.5rem',
+                    cursor: 'pointer',
+                    fontSize: '0.875rem',
+                    fontWeight: '600'
+                  }}
+                >
+                  <Plus size={16} />
+                  Upload First Resource
                 </button>
               </div>
             )}
@@ -740,302 +881,329 @@ const ResourceList = () => {
         ) : (
           <div style={{ 
             display: 'grid', 
-            gridTemplateColumns: 'repeat(auto-fill, minmax(420px, 1fr))', 
+            gridTemplateColumns: viewMode === 'grid' ? 'repeat(auto-fill, minmax(380px, 1fr))' : viewMode === 'list' ? '1fr' : 'repeat(auto-fill, minmax(280px, 1fr))', 
             gap: '1.5rem' 
           }}>
-            {resources.map((resource) => {
-              const resourceType = resourceTypes[resource.type] || resourceTypes['Book'];
-              const publisherName = getPublisherName(resource);
-              const publisherStyle = publisherColors[publisherName] || { bg: colors.lightGray, border: colors.gray, text: colors.gray };
-              const stockStatus = getStockStatus(resource);
+            {filteredResources.map((resource) => {
+              const isFavorite = favorites.includes(resource._id);
+              const canEdit = user.role === 'admin' || user.role === 'tutor' || resource.uploadedBy === user._id;
               
               return (
-                <div 
-                  key={resource._id} 
+                <div
+                  key={resource._id}
                   style={{
                     backgroundColor: colors.white,
                     borderRadius: '1rem',
                     padding: '1.5rem',
                     boxShadow: '0 4px 6px rgba(0,0,0,0.05)',
-                    border: `2px solid ${resourceType.border}20`,
-                    transition: 'all 0.2s',
-                    position: 'relative'
+                    border: `2px solid ${colors.lightGray}`,
+                    transition: 'all 0.2s'
                   }}
                   onMouseOver={(e) => {
                     e.currentTarget.style.transform = 'translateY(-2px)';
-                    e.currentTarget.style.boxShadow = `0 8px 25px ${resourceType.border}20`;
+                    e.currentTarget.style.boxShadow = `0 8px 25px ${getResourceTypeColor(resource.type)}20`;
+                    e.currentTarget.style.borderColor = getResourceTypeColor(resource.type);
                   }}
                   onMouseOut={(e) => {
                     e.currentTarget.style.transform = 'translateY(0)';
                     e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.05)';
+                    e.currentTarget.style.borderColor = colors.lightGray;
                   }}
                 >
-                  {/* Stock Status Badge */}
-                  <div style={{
-                    position: 'absolute',
-                    top: '1rem',
-                    right: '1rem',
-                    padding: '0.25rem 0.75rem',
-                    backgroundColor: stockStatus.bg,
-                    color: stockStatus.color,
-                    borderRadius: '1rem',
-                    fontSize: '0.7rem',
-                    fontWeight: '600',
-                    border: `1px solid ${stockStatus.color}30`
-                  }}>
-                    {stockStatus.status}
+                  {/* Enhanced Resource Header */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1 }}>
+                      <div style={{
+                        width: '3rem',
+                        height: '3rem',
+                        borderRadius: '0.75rem',
+                        backgroundColor: `${getResourceTypeColor(resource.type)}20`,
+                        border: `2px solid ${getResourceTypeColor(resource.type)}`,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: getResourceTypeColor(resource.type)
+                      }}>
+                        {getResourceTypeIcon(resource.type)}
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
+                          <h3 style={{ fontSize: '1.1rem', fontWeight: 'bold', color: colors.dark, margin: 0 }}>
+                            {resource.name || 'Untitled Resource'}
+                          </h3>
+                          <button
+                            onClick={() => handleToggleFavorite(resource._id)}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              cursor: 'pointer',
+                              color: isFavorite ? colors.danger : colors.gray,
+                              padding: '0.25rem'
+                            }}
+                          >
+                            <Heart size={16} fill={isFavorite ? 'currentColor' : 'none'} />
+                          </button>
+                        </div>
+                        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                          <div style={{
+                            display: 'inline-block',
+                            padding: '0.25rem 0.75rem',
+                            backgroundColor: `${getResourceTypeColor(resource.type)}20`,
+                            color: getResourceTypeColor(resource.type),
+                            borderRadius: '1rem',
+                            fontSize: '0.75rem',
+                            fontWeight: '600'
+                          }}>
+                            {resource.type || 'Unknown'}
+                          </div>
+                          <div style={{
+                            display: 'inline-block',
+                            padding: '0.25rem 0.5rem',
+                            backgroundColor: `${getAccessLevelColor(resource.accessLevel)}20`,
+                            color: getAccessLevelColor(resource.accessLevel),
+                            borderRadius: '1rem',
+                            fontSize: '0.7rem',
+                            fontWeight: '500'
+                          }}>
+                            {resource.accessLevel === 'Students Only' ? 'Students' : 
+                             resource.accessLevel === 'Instructors Only' ? 'Instructors' :
+                             resource.accessLevel === 'Admin Only' ? 'Admin' : 'Public'}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {canEdit && (
+                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <button
+                          onClick={() => handleShareResource(resource)}
+                          style={{
+                            padding: '0.5rem',
+                            backgroundColor: `${colors.info}20`,
+                            border: `2px solid ${colors.info}`,
+                            borderRadius: '0.5rem',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                          }}
+                          title="Share Resource"
+                        >
+                          <Share2 size={14} style={{ color: colors.info }} />
+                        </button>
+                        <button
+                          onClick={() => handleEditResource(resource)}
+                          style={{
+                            padding: '0.5rem',
+                            backgroundColor: `${colors.secondary}20`,
+                            border: `2px solid ${colors.secondary}`,
+                            borderRadius: '0.5rem',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                          }}
+                        >
+                          <Edit size={14} style={{ color: colors.secondary }} />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteResource(resource._id, resource)}
+                          style={{
+                            padding: '0.5rem',
+                            backgroundColor: '#fee2e2',
+                            border: '2px solid #ef4444',
+                            borderRadius: '0.5rem',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                          }}
+                        >
+                          <Trash2 size={14} style={{ color: '#ef4444' }} />
+                        </button>
+                      </div>
+                    )}
                   </div>
 
-                  {/* Resource Header */}
-                  <div style={{ 
-                    display: 'flex', 
-                    alignItems: 'flex-start', 
-                    marginBottom: '1rem',
-                    paddingBottom: '1rem',
-                    borderBottom: `1px solid ${colors.lightGray}`,
-                    paddingRight: '5rem'
-                  }}>
-                    <div style={{
-                      width: '3rem',
-                      height: '3rem',
-                      borderRadius: '0.75rem',
-                      backgroundColor: resourceType.bg,
-                      border: `2px solid ${resourceType.border}`,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      marginRight: '1rem',
-                      color: resourceType.color
+                  {/* Resource Description */}
+                  {resource.description && (
+                    <p style={{ 
+                      fontSize: '0.875rem', 
+                      color: colors.gray, 
+                      marginBottom: '1rem',
+                      lineHeight: '1.4'
                     }}>
-                      {resourceType.icon}
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <h3 style={{ 
-                        fontSize: '1.125rem', 
-                        fontWeight: '700', 
-                        color: colors.dark,
-                        marginBottom: '0.25rem',
-                        lineHeight: '1.3'
-                      }}>
-                        {resource.name}
-                      </h3>
-                      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                        <span style={{
-                          padding: '0.125rem 0.5rem',
-                          backgroundColor: resourceType.bg,
-                          color: resourceType.color,
-                          borderRadius: '1rem',
-                          fontSize: '0.7rem',
-                          fontWeight: '600'
-                        }}>
-                          {resource.type}
-                        </span>
-                        <span style={{
-                          padding: '0.125rem 0.5rem',
-                          backgroundColor: `${colors.secondary}20`,
-                          color: colors.dark,
-                          borderRadius: '1rem',
-                          fontSize: '0.7rem',
-                          fontWeight: '500'
-                        }}>
-                          {resource.language}
-                        </span>
-                      </div>
-                      
-                      {/* Publisher */}
-                      <div style={{
-                        padding: '0.25rem 0.75rem',
-                        backgroundColor: publisherStyle.bg,
-                        color: publisherStyle.text,
-                        border: `1px solid ${publisherStyle.border}30`,
-                        borderRadius: '1rem',
-                        fontSize: '0.75rem',
-                        fontWeight: '600',
-                        display: 'inline-block'
-                      }}>
-                        {publisherName}
-                      </div>
-                    </div>
-                  </div>
+                      {resource.description.length > 120 
+                        ? `${resource.description.substring(0, 120)}...` 
+                        : resource.description
+                      }
+                    </p>
+                  )}
 
                   {/* Resource Details */}
-                  <div style={{ marginBottom: '1rem' }}>
-                    {/* French Book Category */}
-                    {resource.frenchBookCategory && (
-                      <div style={{ marginBottom: '0.75rem' }}>
-                        <span style={{ fontSize: '0.75rem', color: colors.gray, fontWeight: '500' }}>
-                          Category
-                        </span>
-                        <p style={{ fontSize: '0.875rem', color: colors.dark, fontWeight: '600' }}>
-                          {resource.frenchBookCategory}
-                          {resource.practiceBookType && ` - ${resource.practiceBookType}`}
-                        </p>
-                      </div>
-                    )}
-
-                    {/* Academic Level */}
-                    {resource.academicInfo?.frenchLevel && (
-                      <div style={{ marginBottom: '0.75rem' }}>
-                        <span style={{ fontSize: '0.75rem', color: colors.gray, fontWeight: '500' }}>
-                          French Level
-                        </span>
-                        <p style={{ fontSize: '0.875rem', color: colors.dark, fontWeight: '600' }}>
-                          {resource.academicInfo.frenchLevel}
-                        </p>
-                      </div>
-                    )}
-
-                    {/* Publisher Details */}
-                    {resource.publisher?.series && (
-                      <div style={{ marginBottom: '0.75rem' }}>
-                        <span style={{ fontSize: '0.75rem', color: colors.gray, fontWeight: '500' }}>
-                          Series & Level
-                        </span>
-                        <p style={{ fontSize: '0.875rem', color: colors.dark }}>
-                          {resource.publisher.series} {resource.publisher.level && `(${resource.publisher.level})`}
-                        </p>
-                      </div>
-                    )}
-
-                    {/* Inventory Info */}
-                    <div style={{ 
-                      backgroundColor: colors.lightGray, 
-                      padding: '0.75rem', 
-                      borderRadius: '0.5rem',
-                      marginBottom: '1rem'
-                    }}>
-                      <div style={{ 
-                        display: 'flex', 
-                        justifyContent: 'space-between', 
-                        alignItems: 'center',
-                        marginBottom: '0.5rem'
-                      }}>
-                        <span style={{ fontSize: '0.875rem', fontWeight: '600', color: colors.dark }}>
-                          📦 Inventory
-                        </span>
-                        <span style={{ fontSize: '0.8rem', color: colors.gray }}>
-                          Total: {resource.inventory?.totalStock || 0}
-                        </span>
-                      </div>
-                      <div style={{ 
-                        display: 'flex', 
-                        justifyContent: 'space-between', 
-                        alignItems: 'center'
-                      }}>
-                        <span style={{ fontSize: '0.8rem', color: colors.gray }}>
-                          Available: {resource.inventory?.available || 0}
-                        </span>
-                        <span style={{ fontSize: '0.8rem', color: colors.gray }}>
-                          Min: {resource.inventory?.minimumStock || 5}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Pricing Tiers */}
-                    <div style={{ 
-                      backgroundColor: colors.lightGray, 
-                      padding: '1rem', 
-                      borderRadius: '0.5rem',
-                      marginBottom: '1rem'
-                    }}>
-                      <div style={{ 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        gap: '0.5rem', 
-                        marginBottom: '0.75rem' 
-                      }}>
-                        <DollarSign size={16} style={{ color: colors.primary }} />
-                        <span style={{ fontSize: '0.875rem', fontWeight: '600', color: colors.dark }}>
-                          Pricing Tiers (KSh)
+                  <div style={{ 
+                    backgroundColor: colors.lightGray, 
+                    padding: '1rem', 
+                    borderRadius: '0.5rem',
+                    marginBottom: '1rem'
+                  }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <BookOpen size={14} style={{ color: colors.gray }} />
+                        <span style={{ fontSize: '0.8rem', color: colors.dark }}>
+                          {resource.category}
                         </span>
                       </div>
                       
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.5rem' }}>
-                        {/* School Price */}
-                        <div style={{ textAlign: 'center' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.25rem', marginBottom: '0.25rem' }}>
-                            <Building size={12} style={{ color: colors.primary }} />
-                            <span style={{ fontSize: '0.7rem', color: colors.gray, fontWeight: '500' }}>Schools</span>
-                          </div>
-                          <span style={{ fontSize: '0.875rem', fontWeight: '700', color: colors.primary }}>
-                            {resource.pricing?.schoolBulkPrice?.toLocaleString() || 'N/A'}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <Target size={14} style={{ color: colors.gray }} />
+                        <span style={{ fontSize: '0.8rem', color: colors.dark }}>
+                          {resource.level}
+                        </span>
+                      </div>
+
+                      {resource.fileSize && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <HardDrive size={14} style={{ color: colors.gray }} />
+                          <span style={{ fontSize: '0.8rem', color: colors.gray }}>
+                            {resource.fileSize}
                           </span>
                         </div>
+                      )}
 
-                        {/* Teacher Price */}
-                        <div style={{ textAlign: 'center' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.25rem', marginBottom: '0.25rem' }}>
-                            <GraduationCap size={12} style={{ color: colors.secondary }} />
-                            <span style={{ fontSize: '0.7rem', color: colors.gray, fontWeight: '500' }}>Teachers</span>
-                          </div>
-                          <span style={{ fontSize: '0.875rem', fontWeight: '700', color: '#d97706' }}>
-                            {resource.pricing?.teacherDiscountPrice?.toLocaleString() || 'N/A'}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <CloudDownload size={14} style={{ color: colors.gray }} />
+                        <span style={{ fontSize: '0.8rem', color: colors.gray }}>
+                          {resource.downloadCount || 0} downloads
+                        </span>
+                      </div>
+
+                      {resource.duration && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <Clock size={14} style={{ color: colors.gray }} />
+                          <span style={{ fontSize: '0.8rem', color: colors.gray }}>
+                            {resource.duration}
                           </span>
                         </div>
+                      )}
 
-                        {/* Student Price */}
-                        <div style={{ textAlign: 'center' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.25rem', marginBottom: '0.25rem' }}>
-                            <Users size={12} style={{ color: colors.dark }} />
-                            <span style={{ fontSize: '0.7rem', color: colors.gray, fontWeight: '500' }}>Students</span>
-                          </div>
-                          <span style={{ fontSize: '0.875rem', fontWeight: '700', color: colors.dark }}>
-                            {resource.pricing?.studentRetailPrice?.toLocaleString() || 'N/A'}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <User size={14} style={{ color: colors.gray }} />
+                        <span style={{ fontSize: '0.8rem', color: colors.gray }}>
+                          {resource.uploaderName}
+                        </span>
+                      </div>
+                    </div>
+                    
+                    {resource.uploadDate && (
+                      <div style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: `1px solid ${colors.gray}30` }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <Calendar size={14} style={{ color: colors.gray }} />
+                          <span style={{ fontSize: '0.8rem', color: colors.gray }}>
+                            Uploaded {new Date(resource.uploadDate).toLocaleDateString()}
                           </span>
                         </div>
                       </div>
-                    </div>
+                    )}
                   </div>
 
-                  {/* Actions */}
-                  {user.role === 'admin' && (
-                    <div style={{ 
-                      display: 'flex', 
-                      gap: '0.5rem', 
-                      paddingTop: '1rem',
-                      borderTop: `1px solid ${colors.lightGray}`
-                    }}>
-                      <button
-                        onClick={() => handleEdit(resource)}
-                        style={{
-                          flex: 1,
-                          padding: '0.5rem',
-                          backgroundColor: `${colors.primary}10`,
-                          color: colors.primary,
-                          border: `1px solid ${colors.primary}30`,
-                          borderRadius: '0.375rem',
-                          cursor: 'pointer',
-                          fontSize: '0.8rem',
-                          fontWeight: '500',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: '0.25rem'
-                        }}
-                      >
-                        <Edit size={14} />
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => handleDelete(resource._id)}
-                        style={{
-                          padding: '0.5rem',
-                          backgroundColor: '#fee2e2',
-                          color: '#dc2626',
-                          border: '1px solid #fecaca',
-                          borderRadius: '0.375rem',
-                          cursor: 'pointer',
-                          fontSize: '0.8rem',
-                          fontWeight: '500',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center'
-                        }}
-                      >
-                        <Trash2 size={14} />
-                      </button>
+                  {/* Tags */}
+                  {resource.tags && resource.tags.length > 0 && (
+                    <div style={{ marginBottom: '1rem' }}>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                        {resource.tags.slice(0, 4).map((tag, index) => (
+                          <div key={index} style={{
+                            padding: '0.25rem 0.5rem',
+                            backgroundColor: `${colors.secondary}20`,
+                            color: colors.dark,
+                            borderRadius: '1rem',
+                            fontSize: '0.7rem',
+                            fontWeight: '500'
+                          }}>
+                            #{tag}
+                          </div>
+                        ))}
+                        {resource.tags.length > 4 && (
+                          <div style={{
+                            padding: '0.25rem 0.5rem',
+                            backgroundColor: colors.lightGray,
+                            color: colors.gray,
+                            borderRadius: '1rem',
+                            fontSize: '0.7rem'
+                          }}>
+                            +{resource.tags.length - 4} more
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )}
+
+                  {/* Quick Action Buttons */}
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <button
+                      onClick={() => handleResourceAccess(resource)}
+                      style={{
+                        flex: 1,
+                        padding: '0.5rem',
+                        backgroundColor: `${colors.primary}20`,
+                        color: colors.primary,
+                        border: `1px solid ${colors.primary}30`,
+                        borderRadius: '0.375rem',
+                        cursor: 'pointer',
+                        fontSize: '0.75rem',
+                        fontWeight: '500',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '0.25rem'
+                      }}
+                    >
+                      {resource.type === 'Link' ? <ExternalLink size={12} /> : <Download size={12} />}
+                      {resource.type === 'Link' ? 'Open' : 'Download'}
+                    </button>
+                    
+                    <button
+                      onClick={() => handleShareResource(resource)}
+                      style={{
+                        flex: 1,
+                        padding: '0.5rem',
+                        backgroundColor: `${colors.info}10`,
+                        color: colors.info,
+                        border: `1px solid ${colors.info}30`,
+                        borderRadius: '0.375rem',
+                        cursor: 'pointer',
+                        fontSize: '0.75rem',
+                        fontWeight: '500',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '0.25rem'
+                      }}
+                    >
+                      <Share2 size={12} />
+                      Share
+                    </button>
+
+                    <button
+                      onClick={() => handleToggleFavorite(resource._id)}
+                      style={{
+                        padding: '0.5rem',
+                        backgroundColor: isFavorite ? `${colors.danger}20` : `${colors.gray}20`,
+                        color: isFavorite ? colors.danger : colors.gray,
+                        border: `1px solid ${isFavorite ? colors.danger : colors.gray}30`,
+                        borderRadius: '0.375rem',
+                        cursor: 'pointer',
+                        fontSize: '0.75rem',
+                        fontWeight: '500',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}
+                      title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+                    >
+                      <Heart size={12} fill={isFavorite ? 'currentColor' : 'none'} />
+                    </button>
+                  </div>
                 </div>
               );
             })}
@@ -1046,46 +1214,14 @@ const ResourceList = () => {
         {showForm && (
           <ResourceForm
             resource={editingResource}
-            onClose={handleFormClose}
+            onClose={() => {
+              setShowForm(false);
+              setEditingResource(null);
+            }}
             onResourceSaved={handleResourceSaved}
           />
         )}
       </div>
-
-      {/* Floating Action Button for Mobile/Quick Access */}
-      {user.role === 'admin' && (
-        <button
-          onClick={handleAddNew}
-          style={{
-            position: 'fixed',
-            bottom: '2rem',
-            right: '2rem',
-            width: '4rem',
-            height: '4rem',
-            borderRadius: '50%',
-            background: `linear-gradient(135deg, ${colors.primary}, ${colors.dark})`,
-            color: colors.white,
-            border: 'none',
-            cursor: 'pointer',
-            fontSize: '1.5rem',
-            fontWeight: '600',
-            boxShadow: `0 8px 25px ${colors.primary}50`,
-            transition: 'all 0.3s',
-            zIndex: 1000
-          }}
-          onMouseOver={(e) => {
-            e.target.style.transform = 'scale(1.1)';
-            e.target.style.boxShadow = `0 12px 35px ${colors.primary}60`;
-          }}
-          onMouseOut={(e) => {
-            e.target.style.transform = 'scale(1)';
-            e.target.style.boxShadow = `0 8px 25px ${colors.primary}50`;
-          }}
-          title="Add New Resource"
-        >
-          <Plus size={24} />
-        </button>
-      )}
     </div>
   );
 };

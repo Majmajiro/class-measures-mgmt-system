@@ -965,7 +965,6 @@ const ResourceForm = ({ resource = null, onClose, onResourceSaved }) => {
                     fontWeight: '600', 
                     color: colors.dark, 
                     marginBottom: '0.5rem',
-                    display: 'flex',
                     alignItems: 'center',
                     gap: '0.5rem'
                   }}>

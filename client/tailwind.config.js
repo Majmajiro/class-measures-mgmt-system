@@ -7,9 +7,10 @@ export default {
   theme: {
     extend: {
       colors: {
-        primary: '#c55c5c',    // Class Measures Red/Coral
-        secondary: '#f4c842',   // Class Measures Golden Yellow
-        dark: '#1e1e3c',       // Class Measures Dark Navy
+        // Class Measures Brand Colors
+        primary: '#c55c5c',    // Coral red from your logo
+        secondary: '#f4c842',   // Golden yellow from your logo
+        dark: '#1e1e3c',       // Dark navy from your logo
         light: '#f8fafc',      // Light background
       },
       borderWidth: {

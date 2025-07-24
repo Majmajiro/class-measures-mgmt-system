@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
 import { studentsAPI } from '../../services/api';
 import { toast } from 'react-hot-toast';
-import { X, User, Phone, Mail, MapPin, GraduationCap, Heart, AlertTriangle } from 'lucide-react';
+import { X, Save, User, Phone, MapPin, Heart, GraduationCap } from 'lucide-react';
 
-const StudentForm = ({ student, onClose, onStudentSaved }) => {
+const StudentForm = ({ student = null, onClose, onStudentSaved }) => {
+  const isEditing = !!student;
+  const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     age: '',
@@ -31,8 +33,6 @@ const StudentForm = ({ student, onClose, onStudentSaved }) => {
       gradeLevel: ''
     }
   });
-  
-  const [loading, setLoading] = useState(false);
 
   const colors = {
     primary: '#c55c5c',
@@ -44,7 +44,7 @@ const StudentForm = ({ student, onClose, onStudentSaved }) => {
   };
 
   useEffect(() => {
-    if (student) {
+    if (isEditing && student) {
       setFormData({
         name: student.name || '',
         age: student.age || '',
@@ -73,23 +73,26 @@ const StudentForm = ({ student, onClose, onStudentSaved }) => {
         }
       });
     }
-  }, [student]);
+  }, [isEditing, student]);
 
-  const handleInputChange = (field, value) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
-  };
-
-  const handleNestedInputChange = (section, field, value) => {
-    setFormData(prev => ({
-      ...prev,
-      [section]: {
-        ...prev[section],
-        [field]: value
-      }
-    }));
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    
+    if (name.includes('.')) {
+      const [parent, child] = name.split('.');
+      setFormData(prev => ({
+        ...prev,
+        [parent]: {
+          ...prev[parent],
+          [child]: value
+        }
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [name]: value
+      }));
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -104,8 +107,8 @@ const StudentForm = ({ student, onClose, onStudentSaved }) => {
         return;
       }
 
-      if (!formData.age || formData.age < 1 || formData.age > 25) {
-        toast.error('Please enter a valid age (1-25)');
+      if (!formData.age || formData.age < 1) {
+        toast.error('Valid age is required');
         setLoading(false);
         return;
       }
@@ -116,24 +119,31 @@ const StudentForm = ({ student, onClose, onStudentSaved }) => {
         return;
       }
 
-      let response;
-      if (student) {
-        response = await studentsAPI.update(student._id, formData);
-      } else {
-        response = await studentsAPI.create(formData);
+      if (!formData.parentInfo.parentPhone.trim()) {
+        toast.error('Parent phone is required');
+        setLoading(false);
+        return;
       }
 
-      console.log('Student save response:', response);
+      const submitData = {
+        ...formData,
+        age: parseInt(formData.age)
+      };
 
-      if (response.student || response.message) {
-        toast.success(student ? 'Student updated successfully!' : 'Student created successfully!');
-        onStudentSaved();
+      console.log('Submitting student data:', submitData);
+
+      if (isEditing) {
+        await studentsAPI.update(student._id, submitData);
+        toast.success('👨‍🎓 Student updated successfully!');
       } else {
-        throw new Error('Failed to save student');
+        await studentsAPI.create(submitData);
+        toast.success('🎉 Student created successfully!');
       }
+      
+      onStudentSaved();
     } catch (error) {
-      console.error('Error saving student:', error);
-      toast.error(student ? 'Failed to update student' : 'Failed to create student');
+      console.error('Save student error:', error);
+      toast.error(error.response?.data?.message || 'Failed to save student');
     } finally {
       setLoading(false);
     }
@@ -142,434 +152,646 @@ const StudentForm = ({ student, onClose, onStudentSaved }) => {
   return (
     <div style={{
       position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      inset: 0,
+      backgroundColor: 'rgba(0, 0, 0, 0.6)',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      zIndex: 1000,
+      zIndex: 50,
       padding: '1rem'
     }}>
       <div style={{
         backgroundColor: colors.white,
         borderRadius: '1rem',
-        padding: '2rem',
+        padding: '0',
         width: '100%',
-        maxWidth: '800px',
+        maxWidth: '56rem',
         maxHeight: '90vh',
-        overflow: 'auto',
-        boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)'
+        overflow: 'hidden',
+        boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)',
+        border: `3px solid ${colors.primary}20`
       }}>
         {/* Header */}
-        <div style={{ 
-          display: 'flex', 
-          justifyContent: 'space-between', 
-          alignItems: 'center', 
-          marginBottom: '2rem',
-          paddingBottom: '1rem',
-          borderBottom: `2px solid ${colors.lightGray}`
+        <div style={{
+          padding: '1.5rem 2rem',
+          borderBottom: `2px solid ${colors.lightGray}`,
+          background: `linear-gradient(135deg, ${colors.primary}, ${colors.dark})`,
+          color: colors.white
         }}>
-          <h2 style={{ 
-            fontSize: '1.5rem', 
-            fontWeight: 'bold', 
-            color: colors.dark,
-            margin: 0
-          }}>
-            {student ? '✏️ Edit Student' : '👨‍🎓 Add New Student'}
-          </h2>
-          <button
-            onClick={onClose}
-            style={{
-              padding: '0.5rem',
-              backgroundColor: colors.lightGray,
-              border: 'none',
-              borderRadius: '0.5rem',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}
-          >
-            <X size={20} style={{ color: colors.gray }} />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit}>
-          {/* Basic Information */}
-          <div style={{ marginBottom: '2rem' }}>
-            <h3 style={{ 
-              fontSize: '1.125rem', 
-              fontWeight: '600', 
-              color: colors.dark, 
-              marginBottom: '1rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem'
-            }}>
-              <User size={20} style={{ color: colors.primary }} />
-              Basic Information
-            </h3>
-            
-            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '1rem' }}>
-              <div>
-                <label style={{ 
-                  display: 'block', 
-                  fontSize: '0.875rem', 
-                  fontWeight: '500', 
-                  color: colors.dark, 
-                  marginBottom: '0.5rem' 
-                }}>
-                  Student Name *
-                </label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => handleInputChange('name', e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '0.75rem',
-                    border: `2px solid ${colors.lightGray}`,
-                    borderRadius: '0.5rem',
-                    fontSize: '0.875rem',
-                    outline: 'none'
-                  }}
-                  placeholder="Enter student's full name"
-                  required
-                />
-              </div>
-              
-              <div>
-                <label style={{ 
-                  display: 'block', 
-                  fontSize: '0.875rem', 
-                  fontWeight: '500', 
-                  color: colors.dark, 
-                  marginBottom: '0.5rem' 
-                }}>
-                  Age *
-                </label>
-                <input
-                  type="number"
-                  value={formData.age}
-                  onChange={(e) => handleInputChange('age', e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '0.75rem',
-                    border: `2px solid ${colors.lightGray}`,
-                    borderRadius: '0.5rem',
-                    fontSize: '0.875rem',
-                    outline: 'none'
-                  }}
-                  placeholder="Age"
-                  min="1"
-                  max="25"
-                  required
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Parent Information */}
-          <div style={{ marginBottom: '2rem' }}>
-            <h3 style={{ 
-              fontSize: '1.125rem', 
-              fontWeight: '600', 
-              color: colors.dark, 
-              marginBottom: '1rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem'
-            }}>
-              <Phone size={20} style={{ color: colors.secondary }} />
-              Parent Information
-            </h3>
-            
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
-              <div>
-                <label style={{ 
-                  display: 'block', 
-                  fontSize: '0.875rem', 
-                  fontWeight: '500', 
-                  color: colors.dark, 
-                  marginBottom: '0.5rem' 
-                }}>
-                  Parent Name *
-                </label>
-                <input
-                  type="text"
-                  value={formData.parentInfo.parentName}
-                  onChange={(e) => handleNestedInputChange('parentInfo', 'parentName', e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '0.75rem',
-                    border: `2px solid ${colors.lightGray}`,
-                    borderRadius: '0.5rem',
-                    fontSize: '0.875rem',
-                    outline: 'none'
-                  }}
-                  placeholder="Parent/Guardian name"
-                  required
-                />
-              </div>
-              
-              <div>
-                <label style={{ 
-                  display: 'block', 
-                  fontSize: '0.875rem', 
-                  fontWeight: '500', 
-                  color: colors.dark, 
-                  marginBottom: '0.5rem' 
-                }}>
-                  Phone Number
-                </label>
-                <input
-                  type="tel"
-                  value={formData.parentInfo.parentPhone}
-                  onChange={(e) => handleNestedInputChange('parentInfo', 'parentPhone', e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '0.75rem',
-                    border: `2px solid ${colors.lightGray}`,
-                    borderRadius: '0.5rem',
-                    fontSize: '0.875rem',
-                    outline: 'none'
-                  }}
-                  placeholder="+254 7XX XXX XXX"
-                />
-              </div>
-            </div>
-
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
-              <label style={{ 
-                display: 'block', 
-                fontSize: '0.875rem', 
-                fontWeight: '500', 
-                color: colors.dark, 
-                marginBottom: '0.5rem' 
-              }}>
-                Email Address
-              </label>
-              <input
-                type="email"
-                value={formData.parentInfo.parentEmail}
-                onChange={(e) => handleNestedInputChange('parentInfo', 'parentEmail', e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '0.75rem',
-                  border: `2px solid ${colors.lightGray}`,
-                  borderRadius: '0.5rem',
-                  fontSize: '0.875rem',
-                  outline: 'none'
-                }}
-                placeholder="parent@example.com"
-              />
+              <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '0.5rem' }}>
+                {isEditing ? '✏️ Edit Student' : '👨‍🎓 Add New Student'}
+              </h2>
+              <p style={{ fontSize: '0.875rem', opacity: 0.9 }}>
+                {isEditing ? `Update "${student?.name}"` : 'Add a new student to your Class Measures Hub'}
+              </p>
             </div>
-          </div>
-
-          {/* Address Information */}
-          <div style={{ marginBottom: '2rem' }}>
-            <h3 style={{ 
-              fontSize: '1.125rem', 
-              fontWeight: '600', 
-              color: colors.dark, 
-              marginBottom: '1rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem'
-            }}>
-              <MapPin size={20} style={{ color: '#10b981' }} />
-              Address Information
-            </h3>
-            
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-              <div>
-                <label style={{ 
-                  display: 'block', 
-                  fontSize: '0.875rem', 
-                  fontWeight: '500', 
-                  color: colors.dark, 
-                  marginBottom: '0.5rem' 
-                }}>
-                  Area/Estate
-                </label>
-                <input
-                  type="text"
-                  value={formData.address.area}
-                  onChange={(e) => handleNestedInputChange('address', 'area', e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '0.75rem',
-                    border: `2px solid ${colors.lightGray}`,
-                    borderRadius: '0.5rem',
-                    fontSize: '0.875rem',
-                    outline: 'none'
-                  }}
-                  placeholder="e.g., Limuru, Kikuyu"
-                />
-              </div>
-              
-              <div>
-                <label style={{ 
-                  display: 'block', 
-                  fontSize: '0.875rem', 
-                  fontWeight: '500', 
-                  color: colors.dark, 
-                  marginBottom: '0.5rem' 
-                }}>
-                  County
-                </label>
-                <input
-                  type="text"
-                  value={formData.address.county}
-                  onChange={(e) => handleNestedInputChange('address', 'county', e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '0.75rem',
-                    border: `2px solid ${colors.lightGray}`,
-                    borderRadius: '0.5rem',
-                    fontSize: '0.875rem',
-                    outline: 'none'
-                  }}
-                  placeholder="e.g., Kiambu, Nairobi"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Academic Information */}
-          <div style={{ marginBottom: '2rem' }}>
-            <h3 style={{ 
-              fontSize: '1.125rem', 
-              fontWeight: '600', 
-              color: colors.dark, 
-              marginBottom: '1rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem'
-            }}>
-              <GraduationCap size={20} style={{ color: '#8b5cf6' }} />
-              Academic Information
-            </h3>
-            
-            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '1rem' }}>
-              <div>
-                <label style={{ 
-                  display: 'block', 
-                  fontSize: '0.875rem', 
-                  fontWeight: '500', 
-                  color: colors.dark, 
-                  marginBottom: '0.5rem' 
-                }}>
-                  Current School
-                </label>
-                <input
-                  type="text"
-                  value={formData.academicInfo.school}
-                  onChange={(e) => handleNestedInputChange('academicInfo', 'school', e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '0.75rem',
-                    border: `2px solid ${colors.lightGray}`,
-                    borderRadius: '0.5rem',
-                    fontSize: '0.875rem',
-                    outline: 'none'
-                  }}
-                  placeholder="Name of current school"
-                />
-              </div>
-              
-              <div>
-                <label style={{ 
-                  display: 'block', 
-                  fontSize: '0.875rem', 
-                  fontWeight: '500', 
-                  color: colors.dark, 
-                  marginBottom: '0.5rem' 
-                }}>
-                  Grade Level
-                </label>
-                <select
-                  value={formData.academicInfo.gradeLevel}
-                  onChange={(e) => handleNestedInputChange('academicInfo', 'gradeLevel', e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '0.75rem',
-                    border: `2px solid ${colors.lightGray}`,
-                    borderRadius: '0.5rem',
-                    fontSize: '0.875rem',
-                    outline: 'none',
-                    backgroundColor: colors.white
-                  }}
-                >
-                  <option value="">Select Grade</option>
-                  <option value="PP1">PP1</option>
-                  <option value="PP2">PP2</option>
-                  <option value="Grade 1">Grade 1</option>
-                  <option value="Grade 2">Grade 2</option>
-                  <option value="Grade 3">Grade 3</option>
-                  <option value="Grade 4">Grade 4</option>
-                  <option value="Grade 5">Grade 5</option>
-                  <option value="Grade 6">Grade 6</option>
-                  <option value="Grade 7">Grade 7</option>
-                  <option value="Grade 8">Grade 8</option>
-                  <option value="Form 1">Form 1</option>
-                  <option value="Form 2">Form 2</option>
-                  <option value="Form 3">Form 3</option>
-                  <option value="Form 4">Form 4</option>
-                </select>
-              </div>
-            </div>
-          </div>
-
-          {/* Action Buttons */}
-          <div style={{ 
-            display: 'flex', 
-            gap: '1rem', 
-            justifyContent: 'flex-end',
-            paddingTop: '1rem',
-            borderTop: `1px solid ${colors.lightGray}`
-          }}>
             <button
-              type="button"
               onClick={onClose}
               style={{
-                padding: '0.75rem 1.5rem',
-                backgroundColor: colors.lightGray,
-                color: colors.gray,
+                background: 'rgba(255,255,255,0.2)',
                 border: 'none',
                 borderRadius: '0.5rem',
+                padding: '0.5rem',
                 cursor: 'pointer',
-                fontSize: '0.875rem',
-                fontWeight: '500'
+                color: colors.white
               }}
             >
-              Cancel
+              <X size={20} />
             </button>
-            
-            <button
-              type="submit"
-              disabled={loading}
-              style={{
-                padding: '0.75rem 1.5rem',
-                backgroundColor: loading ? colors.gray : colors.primary,
-                color: colors.white,
-                border: 'none',
-                borderRadius: '0.5rem',
-                cursor: loading ? 'not-allowed' : 'pointer',
-                fontSize: '0.875rem',
-                fontWeight: '600',
+          </div>
+        </div>
+
+        {/* Form Content */}
+        <div style={{ maxHeight: 'calc(90vh - 140px)', overflow: 'auto', padding: '2rem' }}>
+          <form onSubmit={handleSubmit}>
+            {/* Basic Information */}
+            <div style={{ marginBottom: '2rem' }}>
+              <h3 style={{ 
+                fontSize: '1.125rem', 
+                fontWeight: '600', 
+                color: colors.dark, 
+                marginBottom: '1rem',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '0.5rem'
-              }}
-            >
-              {loading ? 'Saving...' : (student ? 'Update Student' : 'Create Student')}
-            </button>
-          </div>
-        </form>
+              }}>
+                <User size={18} style={{ color: colors.primary }} />
+                Basic Information
+              </h3>
+              
+              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+                <div>
+                  <label style={{ 
+                    display: 'block', 
+                    fontSize: '0.875rem', 
+                    fontWeight: '600', 
+                    color: colors.dark, 
+                    marginBottom: '0.5rem' 
+                  }}>
+                    Student Name *
+                  </label>
+                  <input
+                    type="text"
+                    name="name"
+                    value={formData.name}
+                    onChange={handleChange}
+                    required
+                    style={{
+                      width: '100%',
+                      padding: '0.75rem',
+                      border: `2px solid ${colors.lightGray}`,
+                      borderRadius: '0.5rem',
+                      fontSize: '0.875rem',
+                      transition: 'border-color 0.2s'
+                    }}
+                    placeholder="Enter student's full name"
+                    onFocus={(e) => e.target.style.borderColor = colors.primary}
+                    onBlur={(e) => e.target.style.borderColor = colors.lightGray}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ 
+                    display: 'block', 
+                    fontSize: '0.875rem', 
+                    fontWeight: '600', 
+                    color: colors.dark, 
+                    marginBottom: '0.5rem' 
+                  }}>
+                    Age *
+                  </label>
+                  <select
+                    name="age"
+                    value={formData.age}
+                    onChange={handleChange}
+                    required
+                    style={{
+                      width: '100%',
+                      padding: '0.75rem',
+                      border: `2px solid ${colors.lightGray}`,
+                      borderRadius: '0.5rem',
+                      fontSize: '0.875rem',
+                      backgroundColor: colors.white
+                    }}
+                  >
+                    <option value="">Select age</option>
+                    {Array.from({length: 13}, (_, i) => i + 6).map(age => (
+                      <option key={age} value={age}>
+                        {age} years old
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* Parent Information */}
+            <div style={{ marginBottom: '2rem' }}>
+              <h3 style={{ 
+                fontSize: '1.125rem', 
+                fontWeight: '600', 
+                color: colors.dark, 
+                marginBottom: '1rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem'
+              }}>
+                <Phone size={18} style={{ color: colors.secondary }} />
+                Parent Information
+              </h3>
+              
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+                <div>
+                  <label style={{ 
+                    display: 'block', 
+                    fontSize: '0.875rem', 
+                    fontWeight: '600', 
+                    color: colors.dark, 
+                    marginBottom: '0.5rem' 
+                  }}>
+                    Parent Name *
+                  </label>
+                  <input
+                    type="text"
+                    name="parentInfo.parentName"
+                    value={formData.parentInfo.parentName}
+                    onChange={handleChange}
+                    required
+                    style={{
+                      width: '100%',
+                      padding: '0.75rem',
+                      border: `2px solid ${colors.lightGray}`,
+                      borderRadius: '0.5rem',
+                      fontSize: '0.875rem'
+                    }}
+                    placeholder="Parent's full name"
+                  />
+                </div>
+
+                <div>
+                  <label style={{ 
+                    display: 'block', 
+                    fontSize: '0.875rem', 
+                    fontWeight: '600', 
+                    color: colors.dark, 
+                    marginBottom: '0.5rem' 
+                  }}>
+                    Parent Phone *
+                  </label>
+                  <input
+                    type="tel"
+                    name="parentInfo.parentPhone"
+                    value={formData.parentInfo.parentPhone}
+                    onChange={handleChange}
+                    required
+                    style={{
+                      width: '100%',
+                      padding: '0.75rem',
+                      border: `2px solid ${colors.lightGray}`,
+                      borderRadius: '0.5rem',
+                      fontSize: '0.875rem'
+                    }}
+                    placeholder="+254712345678"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label style={{ 
+                  display: 'block', 
+                  fontSize: '0.875rem', 
+                  fontWeight: '600', 
+                  color: colors.dark, 
+                  marginBottom: '0.5rem' 
+                }}>
+                  Parent Email
+                </label>
+                <input
+                  type="email"
+                  name="parentInfo.parentEmail"
+                  value={formData.parentInfo.parentEmail}
+                  onChange={handleChange}
+                  style={{
+                    width: '100%',
+                    padding: '0.75rem',
+                    border: `2px solid ${colors.lightGray}`,
+                    borderRadius: '0.5rem',
+                    fontSize: '0.875rem'
+                  }}
+                  placeholder="parent@example.com"
+                />
+              </div>
+            </div>
+
+            {/* Address Information */}
+            <div style={{ marginBottom: '2rem' }}>
+              <h3 style={{ 
+                fontSize: '1.125rem', 
+                fontWeight: '600', 
+                color: colors.dark, 
+                marginBottom: '1rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem'
+              }}>
+                <MapPin size={18} style={{ color: '#10b981' }} />
+                Address
+              </h3>
+              
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div>
+                  <label style={{ 
+                    display: 'block', 
+                    fontSize: '0.875rem', 
+                    fontWeight: '600', 
+                    color: colors.dark, 
+                    marginBottom: '0.5rem' 
+                  }}>
+                    Area/Estate
+                  </label>
+                  <input
+                    type="text"
+                    name="address.area"
+                    value={formData.address.area}
+                    onChange={handleChange}
+                    style={{
+                      width: '100%',
+                      padding: '0.75rem',
+                      border: `2px solid ${colors.lightGray}`,
+                      borderRadius: '0.5rem',
+                      fontSize: '0.875rem'
+                    }}
+                    placeholder="e.g., Tigoni, Runda"
+                  />
+                </div>
+
+                <div>
+                  <label style={{ 
+                    display: 'block', 
+                    fontSize: '0.875rem', 
+                    fontWeight: '600', 
+                    color: colors.dark, 
+                    marginBottom: '0.5rem' 
+                  }}>
+                    County
+                  </label>
+                  <input
+                    type="text"
+                    name="address.county"
+                    value={formData.address.county}
+                    onChange={handleChange}
+                    style={{
+                      width: '100%',
+                      padding: '0.75rem',
+                      border: `2px solid ${colors.lightGray}`,
+                      borderRadius: '0.5rem',
+                      fontSize: '0.875rem'
+                    }}
+                    placeholder="e.g., Kiambu, Nairobi"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Emergency Contact */}
+            <div style={{ marginBottom: '2rem' }}>
+              <h3 style={{ 
+                fontSize: '1.125rem', 
+                fontWeight: '600', 
+                color: colors.dark, 
+                marginBottom: '1rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem'
+              }}>
+                <Heart size={18} style={{ color: '#ef4444' }} />
+                Emergency Contact
+              </h3>
+              
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
+                <div>
+                  <label style={{ 
+                    display: 'block', 
+                    fontSize: '0.875rem', 
+                    fontWeight: '600', 
+                    color: colors.dark, 
+                    marginBottom: '0.5rem' 
+                  }}>
+                    Contact Name
+                  </label>
+                  <input
+                    type="text"
+                    name="emergencyContact.name"
+                    value={formData.emergencyContact.name}
+                    onChange={handleChange}
+                    style={{
+                      width: '100%',
+                      padding: '0.75rem',
+                      border: `2px solid ${colors.lightGray}`,
+                      borderRadius: '0.5rem',
+                      fontSize: '0.875rem'
+                    }}
+                    placeholder="Emergency contact name"
+                  />
+                </div>
+
+                <div>
+                  <label style={{ 
+                    display: 'block', 
+                    fontSize: '0.875rem', 
+                    fontWeight: '600', 
+                    color: colors.dark, 
+                    marginBottom: '0.5rem' 
+                  }}>
+                    Contact Phone
+                  </label>
+                  <input
+                    type="tel"
+                    name="emergencyContact.phone"
+                    value={formData.emergencyContact.phone}
+                    onChange={handleChange}
+                    style={{
+                      width: '100%',
+                      padding: '0.75rem',
+                      border: `2px solid ${colors.lightGray}`,
+                      borderRadius: '0.5rem',
+                      fontSize: '0.875rem'
+                    }}
+                    placeholder="+254798765432"
+                  />
+                </div>
+
+                <div>
+                  <label style={{ 
+                    display: 'block', 
+                    fontSize: '0.875rem', 
+                    fontWeight: '600', 
+                    color: colors.dark, 
+                    marginBottom: '0.5rem' 
+                  }}>
+                    Relationship
+                  </label>
+                  <select
+                    name="emergencyContact.relationship"
+                    value={formData.emergencyContact.relationship}
+                    onChange={handleChange}
+                    style={{
+                      width: '100%',
+                      padding: '0.75rem',
+                      border: `2px solid ${colors.lightGray}`,
+                      borderRadius: '0.5rem',
+                      fontSize: '0.875rem',
+                      backgroundColor: colors.white
+                    }}
+                  >
+                    <option value="">Select relationship</option>
+                    <option value="grandparent">Grandparent</option>
+                    <option value="aunt">Aunt</option>
+                    <option value="uncle">Uncle</option>
+                    <option value="family_friend">Family Friend</option>
+                    <option value="sibling">Sibling</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* Academic Information */}
+            <div style={{ marginBottom: '2rem' }}>
+              <h3 style={{ 
+                fontSize: '1.125rem', 
+                fontWeight: '600', 
+                color: colors.dark, 
+                marginBottom: '1rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem'
+              }}>
+                <GraduationCap size={18} style={{ color: '#8b5cf6' }} />
+                Academic Information
+              </h3>
+              
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div>
+                  <label style={{ 
+                    display: 'block', 
+                    fontSize: '0.875rem', 
+                    fontWeight: '600', 
+                    color: colors.dark, 
+                    marginBottom: '0.5rem' 
+                  }}>
+                    School
+                  </label>
+                  <input
+                    type="text"
+                    name="academicInfo.school"
+                    value={formData.academicInfo.school}
+                    onChange={handleChange}
+                    style={{
+                      width: '100%',
+                      padding: '0.75rem',
+                      border: `2px solid ${colors.lightGray}`,
+                      borderRadius: '0.5rem',
+                      fontSize: '0.875rem'
+                    }}
+                    placeholder="Current school name"
+                  />
+                </div>
+
+                <div>
+                  <label style={{ 
+                    display: 'block', 
+                    fontSize: '0.875rem', 
+                    fontWeight: '600', 
+                    color: colors.dark, 
+                    marginBottom: '0.5rem' 
+                  }}>
+                    Grade Level
+                  </label>
+                  <select
+                    name="academicInfo.gradeLevel"
+                    value={formData.academicInfo.gradeLevel}
+                    onChange={handleChange}
+                    style={{
+                      width: '100%',
+                      padding: '0.75rem',
+                      border: `2px solid ${colors.lightGray}`,
+                      borderRadius: '0.5rem',
+                      fontSize: '0.875rem',
+                      backgroundColor: colors.white
+                    }}
+                  >
+                    <option value="">Select grade</option>
+                    <option value="kindergarten">Kindergarten</option>
+                    <option value="grade1">Grade 1</option>
+                    <option value="grade2">Grade 2</option>
+                    <option value="grade3">Grade 3</option>
+                    <option value="grade4">Grade 4</option>
+                    <option value="grade5">Grade 5</option>
+                    <option value="grade6">Grade 6</option>
+                    <option value="grade7">Grade 7</option>
+                    <option value="grade8">Grade 8</option>
+                    <option value="form1">Form 1</option>
+                    <option value="form2">Form 2</option>
+                    <option value="form3">Form 3</option>
+                    <option value="form4">Form 4</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* Medical Information */}
+            <div style={{ marginBottom: '2rem' }}>
+              <h3 style={{ 
+                fontSize: '1.125rem', 
+                fontWeight: '600', 
+                color: colors.dark, 
+                marginBottom: '1rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem'
+              }}>
+                ❤️ Medical Information
+              </h3>
+              
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1rem' }}>
+                <div>
+                  <label style={{ 
+                    display: 'block', 
+                    fontSize: '0.875rem', 
+                    fontWeight: '600', 
+                    color: colors.dark, 
+                    marginBottom: '0.5rem' 
+                  }}>
+                    Allergies
+                  </label>
+                  <textarea
+                    name="medicalInfo.allergies"
+                    value={formData.medicalInfo.allergies}
+                    onChange={handleChange}
+                    rows={2}
+                    style={{
+                      width: '100%',
+                      padding: '0.75rem',
+                      border: `2px solid ${colors.lightGray}`,
+                      borderRadius: '0.5rem',
+                      fontSize: '0.875rem',
+                      resize: 'vertical'
+                    }}
+                    placeholder="List any known allergies..."
+                  />
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                  <div>
+                    <label style={{ 
+                      display: 'block', 
+                      fontSize: '0.875rem', 
+                      fontWeight: '600', 
+                      color: colors.dark, 
+                      marginBottom: '0.5rem' 
+                    }}>
+                      Current Medications
+                    </label>
+                    <textarea
+                      name="medicalInfo.medications"
+                      value={formData.medicalInfo.medications}
+                      onChange={handleChange}
+                      rows={2}
+                      style={{
+                        width: '100%',
+                        padding: '0.75rem',
+                        border: `2px solid ${colors.lightGray}`,
+                        borderRadius: '0.5rem',
+                        fontSize: '0.875rem',
+                        resize: 'vertical'
+                      }}
+                      placeholder="List current medications..."
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ 
+                      display: 'block', 
+                      fontSize: '0.875rem', 
+                      fontWeight: '600', 
+                      color: colors.dark, 
+                      marginBottom: '0.5rem' 
+                    }}>
+                      Medical Conditions
+                    </label>
+                    <textarea
+                      name="medicalInfo.conditions"
+                      value={formData.medicalInfo.conditions}
+                      onChange={handleChange}
+                      rows={2}
+                      style={{
+                        width: '100%',
+                        padding: '0.75rem',
+                        border: `2px solid ${colors.lightGray}`,
+                        borderRadius: '0.5rem',
+                        fontSize: '0.875rem',
+                        resize: 'vertical'
+                      }}
+                      placeholder="Any medical conditions to note..."
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </form>
+        </div>
+
+        {/* Footer */}
+        <div style={{
+          padding: '1.5rem 2rem',
+          borderTop: `2px solid ${colors.lightGray}`,
+          backgroundColor: colors.white,
+          display: 'flex',
+          gap: '1rem',
+          justifyContent: 'flex-end'
+        }}>
+          <button
+            type="button"
+            onClick={onClose}
+            style={{
+              padding: '0.75rem 1.5rem',
+              border: `2px solid ${colors.lightGray}`,
+              backgroundColor: colors.white,
+              color: colors.gray,
+              borderRadius: '0.5rem',
+              cursor: 'pointer',
+              fontSize: '0.875rem',
+              fontWeight: '500'
+            }}
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            onClick={handleSubmit}
+            disabled={loading}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              padding: '0.75rem 1.5rem',
+              background: `linear-gradient(135deg, ${colors.primary}, ${colors.dark})`,
+              color: colors.white,
+              border: 'none',
+              borderRadius: '0.5rem',
+              cursor: loading ? 'not-allowed' : 'pointer',
+              fontSize: '0.875rem',
+              fontWeight: '600',
+              opacity: loading ? 0.7 : 1
+            }}
+          >
+            <Save size={16} />
+            {loading ? 'Saving...' : (isEditing ? 'Update Student' : 'Create Student')}
+          </button>
+        </div>
       </div>
     </div>
   );

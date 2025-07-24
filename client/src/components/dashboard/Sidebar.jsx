@@ -107,7 +107,7 @@ const Sidebar = ({ isOpen, onClose }) => {
               const IconComponent = item.icon;
               return (
                 <li key={index} style={{ marginBottom: '0.5rem' }}>
-                  
+                  <a
                     href={item.href}
                     style={{
                       display: 'flex',
