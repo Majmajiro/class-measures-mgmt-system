@@ -1,0 +1,67 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Global Styles with Your Beautiful Brand Colors */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: #f8fafc; /* Your light background */
+  color: #1e1e3c; /* Your dark navy text */
+}
+
+.App {
+  min-height: 100vh;
+}
+
+/* Custom Component Classes with Your Brand Colors */
+@layer components {
+  .btn-primary {
+    @apply bg-primary hover:bg-primary/90 text-white px-6 py-3 rounded-lg font-medium transition-colors shadow-lg;
+  }
+  
+  .btn-secondary {
+    @apply bg-secondary hover:bg-secondary/90 text-dark px-6 py-3 rounded-lg font-medium transition-colors shadow-lg;
+  }
+  
+  .btn-outline {
+    @apply border-2 border-primary text-primary hover:bg-primary hover:text-white px-6 py-3 rounded-lg font-medium transition-colors;
+  }
+  
+  .card {
+    @apply bg-white rounded-xl shadow-lg border border-gray-100 p-6;
+  }
+  
+  .nav-item {
+    @apply px-4 py-2 rounded-lg font-medium transition-colors hover:bg-primary/10 text-dark;
+  }
+  
+  .nav-item-active {
+    @apply bg-primary text-white shadow-md;
+  }
+  
+  .input-field {
+    @apply w-full px-4 py-3 border border-gray-200 rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors;
+  }
+  
+  .badge-primary {
+    @apply bg-primary/10 text-primary border border-primary/20 px-3 py-1 rounded-full text-sm font-medium;
+  }
+  
+  .badge-secondary {
+    @apply bg-secondary/10 text-secondary border border-secondary/20 px-3 py-1 rounded-full text-sm font-medium;
+  }
+  
+  .badge-navy {
+    @apply bg-dark/10 text-dark border border-dark/20 px-3 py-1 rounded-full text-sm font-medium;
+  }
+}
