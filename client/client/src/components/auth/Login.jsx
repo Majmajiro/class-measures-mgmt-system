@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { Eye, EyeOff, LogIn, Shield } from 'lucide-react';
@@ -11,7 +10,6 @@ const Login = () => {
   });
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const { login } = useAuth();
   const navigate = useNavigate();
 
   // Class Measures Brand Colors
@@ -31,23 +29,19 @@ const Login = () => {
     });
   };
 
+  // Simple fake login for testing
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-
-    const result = await login(formData);
     
-    if (result.success) {
-      toast.success('Welcome to Class Measures Hub!');
-      navigate('/dashboard');
-    } else {
-      toast.error(result.error);
-    }
-    
-    setLoading(false);
+    // Fake login - just show error for now
+    setTimeout(() => {
+      toast.error('Use the orange admin button instead!');
+      setLoading(false);
+    }, 1000);
   };
 
-  // 🔧 TEMP ADMIN LOGIN FUNCTION
+  // 🔧 ADMIN BYPASS FUNCTION  
   const handleAdminLogin = () => {
     const adminUser = {
       id: 1,
@@ -81,19 +75,22 @@ const Login = () => {
         margin: '0 1rem',
         border: `3px solid ${colors.primary}20`
       }}>
-        {/* Real Logo and Header */}
+        {/* Logo and Header */}
         <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-          <img 
-            src="/class-measures-logo.png" 
-            alt="Class Measures Logo" 
-            style={{
-              width: '100px',
-              height: '100px',
-              objectFit: 'contain',
-              margin: '0 auto 1rem',
-              filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.1))'
-            }}
-          />
+          <div style={{
+            width: '100px',
+            height: '100px',
+            margin: '0 auto 1rem',
+            background: `linear-gradient(135deg, ${colors.primary}, ${colors.secondary})`,
+            borderRadius: '50%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '2rem',
+            color: colors.white
+          }}>
+            📚
+          </div>
           <h2 style={{ fontSize: '2rem', fontWeight: 'bold', color: colors.dark, marginBottom: '0.5rem' }}>
             Class Measures Hub
           </h2>
@@ -188,8 +185,6 @@ const Login = () => {
               opacity: loading ? 0.7 : 1,
               transition: 'all 0.2s'
             }}
-            onMouseOver={(e) => !loading && (e.target.style.transform = 'translateY(-1px)')}
-            onMouseOut={(e) => !loading && (e.target.style.transform = 'translateY(0)')}
           >
             {loading ? (
               <div style={{
@@ -203,18 +198,18 @@ const Login = () => {
             ) : (
               <>
                 <LogIn size={16} style={{ marginRight: '0.5rem' }} />
-                Sign In
+                Sign In (Disabled - Use Orange Button)
               </>
             )}
           </button>
         </form>
 
-        {/* 🔧 DEVELOPMENT MODE - ADMIN ACCESS */}
-        <div style={{ margin: '1.5rem 0', textAlign: 'center' }}>
+        {/* 🔧 ADMIN BYPASS SECTION */}
+        <div style={{ margin: '2rem 0', textAlign: 'center' }}>
           <div style={{ 
             height: '1px', 
             background: colors.lightGray, 
-            margin: '1rem 0',
+            margin: '1.5rem 0',
             position: 'relative'
           }}>
             <span style={{
@@ -227,7 +222,7 @@ const Login = () => {
               fontSize: '0.75rem',
               color: colors.gray,
               fontWeight: '500'
-            }}>DEVELOPMENT MODE</span>
+            }}>SIMPLIFIED MODE</span>
           </div>
           
           <button
@@ -238,12 +233,12 @@ const Login = () => {
               display: 'flex',
               justifyContent: 'center',
               alignItems: 'center',
-              padding: '0.875rem 1rem',
+              padding: '1rem',
               background: 'linear-gradient(135deg, #ff6b35, #f7931e)',
               color: colors.white,
               border: 'none',
               borderRadius: '0.5rem',
-              fontSize: '0.875rem',
+              fontSize: '1rem',
               fontWeight: '600',
               cursor: 'pointer',
               transition: 'all 0.2s',
@@ -251,43 +246,25 @@ const Login = () => {
               marginBottom: '0.5rem'
             }}
             onMouseOver={(e) => {
-              e.target.style.transform = 'translateY(-1px)';
-              e.target.style.boxShadow = '0 6px 16px rgba(255,107,53,0.4)';
+              e.target.style.transform = 'translateY(-2px)';
+              e.target.style.boxShadow = '0 6px 20px rgba(255,107,53,0.4)';
             }}
             onMouseOut={(e) => {
               e.target.style.transform = 'translateY(0)';
               e.target.style.boxShadow = '0 4px 12px rgba(255,107,53,0.3)';
             }}
           >
-            <Shield size={16} style={{ marginRight: '0.5rem' }} />
-            🔧 SKIP LOGIN - ADMIN ACCESS
+            <Shield size={18} style={{ marginRight: '0.5rem' }} />
+            🔧 CLICK HERE - ADMIN ACCESS
           </button>
           
           <p style={{ 
-            fontSize: '0.7rem', 
+            fontSize: '0.75rem', 
             color: '#ff6b35', 
             fontWeight: '500',
             margin: '0'
           }}>
-            ⚠️ Remove this after fixing authentication
-          </p>
-        </div>
-
-        <div style={{ textAlign: 'center', marginTop: '2rem' }}>
-          <p style={{ fontSize: '0.875rem', color: colors.gray }}>
-            Don't have an account?{' '}
-            <a 
-              href="/register" 
-              style={{ 
-                color: colors.primary, 
-                textDecoration: 'none',
-                fontWeight: '500'
-              }}
-              onMouseOver={(e) => e.target.style.textDecoration = 'underline'}
-              onMouseOut={(e) => e.target.style.textDecoration = 'none'}
-            >
-              Sign up here
-            </a>
+            ⚠️ This bypasses all authentication
           </p>
         </div>
       </div>
