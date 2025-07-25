@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
-import { Eye, EyeOff, LogIn } from 'lucide-react';
+import { Eye, EyeOff, LogIn, Shield } from 'lucide-react';
 
 const Login = () => {
   const [formData, setFormData] = useState({
@@ -45,6 +45,22 @@ const Login = () => {
     }
     
     setLoading(false);
+  };
+
+  // 🔧 TEMP ADMIN LOGIN FUNCTION
+  const handleAdminLogin = () => {
+    const adminUser = {
+      id: 1,
+      email: 'admin@admin.com',
+      name: 'Temp Admin',
+      role: 'admin'
+    };
+    
+    localStorage.setItem('token', 'temp-admin-token-12345');
+    localStorage.setItem('user', JSON.stringify(adminUser));
+    
+    toast.success('🔧 Admin Access Granted!');
+    navigate('/dashboard');
   };
 
   return (
@@ -192,6 +208,70 @@ const Login = () => {
             )}
           </button>
         </form>
+
+        {/* 🔧 DEVELOPMENT MODE - ADMIN ACCESS */}
+        <div style={{ margin: '1.5rem 0', textAlign: 'center' }}>
+          <div style={{ 
+            height: '1px', 
+            background: colors.lightGray, 
+            margin: '1rem 0',
+            position: 'relative'
+          }}>
+            <span style={{
+              position: 'absolute',
+              left: '50%',
+              top: '50%',
+              transform: 'translate(-50%, -50%)',
+              background: colors.white,
+              padding: '0 1rem',
+              fontSize: '0.75rem',
+              color: colors.gray,
+              fontWeight: '500'
+            }}>DEVELOPMENT MODE</span>
+          </div>
+          
+          <button
+            type="button"
+            onClick={handleAdminLogin}
+            style={{
+              width: '100%',
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              padding: '0.875rem 1rem',
+              background: 'linear-gradient(135deg, #ff6b35, #f7931e)',
+              color: colors.white,
+              border: 'none',
+              borderRadius: '0.5rem',
+              fontSize: '0.875rem',
+              fontWeight: '600',
+              cursor: 'pointer',
+              transition: 'all 0.2s',
+              boxShadow: '0 4px 12px rgba(255,107,53,0.3)',
+              marginBottom: '0.5rem'
+            }}
+            onMouseOver={(e) => {
+              e.target.style.transform = 'translateY(-1px)';
+              e.target.style.boxShadow = '0 6px 16px rgba(255,107,53,0.4)';
+            }}
+            onMouseOut={(e) => {
+              e.target.style.transform = 'translateY(0)';
+              e.target.style.boxShadow = '0 4px 12px rgba(255,107,53,0.3)';
+            }}
+          >
+            <Shield size={16} style={{ marginRight: '0.5rem' }} />
+            🔧 SKIP LOGIN - ADMIN ACCESS
+          </button>
+          
+          <p style={{ 
+            fontSize: '0.7rem', 
+            color: '#ff6b35', 
+            fontWeight: '500',
+            margin: '0'
+          }}>
+            ⚠️ Remove this after fixing authentication
+          </p>
+        </div>
 
         <div style={{ textAlign: 'center', marginTop: '2rem' }}>
           <p style={{ fontSize: '0.875rem', color: colors.gray }}>
