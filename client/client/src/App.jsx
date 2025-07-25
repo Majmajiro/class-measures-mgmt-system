@@ -1,4 +1,5 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { useEffect } from 'react';
 import { AuthProvider } from './context/AuthContext';
 import { SocketProvider } from './context/SocketContext';
 import { Toaster } from 'react-hot-toast';
@@ -19,6 +20,26 @@ import BusinessAnalytics from './components/analytics/BusinessAnalytics';
 import TestTextarea from './pages/TestTextarea';
 
 function App() {
+  // 🔧 TEMPORARY AUTO-LOGIN AS ADMIN - REMOVE AFTER FIXING AUTH
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    
+    if (!token) {
+      const adminUser = {
+        id: 1,
+        email: 'admin@admin.com',
+        name: 'Temp Admin',
+        role: 'admin'
+      };
+      
+      localStorage.setItem('token', 'temp-admin-token-12345');
+      localStorage.setItem('user', JSON.stringify(adminUser));
+      
+      console.log('🔧 AUTO-LOGGED IN AS TEMP ADMIN - Remember to remove this!');
+      console.log('👤 Admin User:', adminUser);
+    }
+  }, []);
+
   return (
     <AuthProvider>
       <SocketProvider>
@@ -44,6 +65,24 @@ function App() {
                 }
               }}
             />
+            
+            {/* 🔧 DEVELOPMENT MODE INDICATOR */}
+            <div style={{
+              position: 'fixed',
+              top: '10px',
+              right: '10px',
+              background: 'linear-gradient(135deg, #ff6b35, #f7931e)',
+              color: 'white',
+              padding: '8px 12px',
+              borderRadius: '20px',
+              fontSize: '12px',
+              fontWeight: '600',
+              zIndex: 9999,
+              boxShadow: '0 4px 8px rgba(255,107,53,0.3)',
+              animation: 'pulse 2s infinite'
+            }}>
+              🔧 DEV MODE: Auto-Admin
+            </div>
             
             <Routes>
               {/* Public Routes */}
@@ -149,6 +188,14 @@ function App() {
                 } 
               />
             </Routes>
+            
+            {/* Add CSS for the pulse animation */}
+            <style>{`
+              @keyframes pulse {
+                0%, 100% { opacity: 1; }
+                50% { opacity: 0.7; }
+              }
+            `}</style>
           </div>
         </Router>
       </SocketProvider>
